@@ -9,8 +9,8 @@
 #' @return A matrix representing the inverse of the original matrix calculated using the SMW formula.
 #'
 #' @details
-#' The function calculates the inverse of a matrix of the form \( A + u v^\top \) efficiently using the SMW formula.
-#' Here, the matrix \( A \) is diagonal with elements \(\tau\), and \( u \) and \( v \) are vectors of 1s.
+#' The function calculates the inverse of a matrix of the form \( A + u v^top \) efficiently using the SMW formula.
+#' Here, the matrix \( A \) is diagonal with elements \(tau\), and \( u \) and \( v \) are vectors of 1s.
 #'
 #' @export
 #'
@@ -324,7 +324,7 @@ jac_inv_transfo <- Vectorize(function(tpar, lb, ub, log = FALSE) {
 #' - If both `lb` and `ub` are infinite, the gradient is 0.
 #' - If `lb` is finite and `ub` is infinite, the gradient is 1.
 #' - If `lb` is infinite and `ub` is finite, the gradient is 1.
-#' - If both bounds are finite, the gradient is calculated as \(-1 + 2 \times \text{plogis}(-tpar)\).
+#' - If both bounds are finite, the gradient is calculated as \(-1 + 2 x {plogis}(-tpar)\).
 #'
 #' @export
 #'

@@ -36,9 +36,10 @@
 #' result <- sim_synthetic_data(nt, "dense", "Poisson", loc, hyper = hyper, beta = beta, X = X, Ft = Ft, G = G)
 #' }
 sim_synthetic_data<- function(nt, model, data_lik, loc, mesh.inf=NULL,
-                            hyper, beta0, beta, Wt,
-                            X, Ft, G, cor.type,
-                            theta0, mu0, C0, R0
+                              mesh.hyper = NULL,
+                              hyper, beta0, beta, Wt,
+                              X, Ft, G, cor.type,
+                              theta0, mu0, C0, R0
 ){
 
  # browser()
@@ -60,9 +61,9 @@ sim_synthetic_data<- function(nt, model, data_lik, loc, mesh.inf=NULL,
   cutoff <- 0.01 * min_dist
   offset <- c(0.05 * range_x, 0.1 * range_x)
   } else{
-    max.edge = max.edge
-    cutoff =  cutoff
-    offset = offset
+    max.edge = sparse.info.sim$max.edge
+    cutoff =  sparse.info.sim$cutoff
+    offset = sparse.info.sim$offset
 }
   INLA.mesh <- INLA::inla.mesh.2d(loc = loc_matrix,
                              max.edge = max.edge,
@@ -73,8 +74,13 @@ sim_synthetic_data<- function(nt, model, data_lik, loc, mesh.inf=NULL,
 
   sparse.info.sim<- list(INLA.mesh=INLA.mesh,
                          A.proj = A.proj, c.mat =  fem.mesh$c0,
-                         g1.mat = fem.mesh$g1, g2.mat = fem.mesh$g2,
-                         max.edge =  max.edge, cutoff =cutoff, offset=offset)
+                         g1.mat = fem.mesh$g1, g2.mat = fem.mesh$g2
+  )
+
+
+  if(is.null(mesh.hyper)){
+    mesh.hyper<- list(max.edge =  max.edge, cutoff =cutoff, offset=offset)
+  }
 
   nb<- dim(A.proj)[2]
 
@@ -164,7 +170,6 @@ sim_synthetic_data<- function(nt, model, data_lik, loc, mesh.inf=NULL,
     corr = NULL
   }
 
-  #browser()
   ### simulate the data according to a particular likelihood
   if(data_lik=="Poisson"){
     y<- matrix(rpois(n=nt * ns, lambda=exp(lambda)), nrow = nt, ncol = ns)
@@ -178,6 +183,7 @@ sim_synthetic_data<- function(nt, model, data_lik, loc, mesh.inf=NULL,
 
   return(list("y"=y,
               "sparse.info.sim" = sparse.info.sim,
+               "mesh.hyper" = mesh.hyper,
               "dist.mat.all" = dist.mat.all,
               "lambda"= lambda,
               "theta" = theta,

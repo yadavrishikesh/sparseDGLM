@@ -5,6 +5,7 @@
 \title{MCMC Sampler for Dense Spatio-Temporal Dynamic Generalized Linear Model}
 \usage{
 MCMC.sampler_model.dense(
+  model,
   data_lik,
   nt,
   ns,

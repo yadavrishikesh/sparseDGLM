@@ -125,6 +125,7 @@ pred.reg<- function(nt,
 #' @param Ft.o A matrix of temporal covariates at observed time points.
 #' @param Ft.frcast A matrix of temporal covariates for future forecasting.
 #' @param dist.mat.all A distance matrix of the spatial locations.
+#' @param cor.type Character, specifying the correlation type for the dense model. Options include `"Matern0.5"`, `"Matern1"`, `"Matern1.5"`, `"Matern2.5"`, and `"MaternInf"`.
 #'
 #' @return A list containing predicted `y.pred` and `lambda.samples`.
 #' @export
@@ -146,6 +147,7 @@ pred.dense <- function(nt,
                        data_lik,
                        spatInt.ind,
                        forcast.ind,
+                       cor.type,
                        pred_type = c("spatInt", "forecast", "spatInt_forecast"),
                        X.intpl,
                        X.frcast,
@@ -317,6 +319,7 @@ pred.dense <- function(nt,
 pred.sparse <- function(nt,
                         ns,
                         nb,
+                        data_lik,
                         spatInt.ind,
                         forcast.ind,
                         pred_type = c("spatInt", "forecast", "spatInt_forecast"),

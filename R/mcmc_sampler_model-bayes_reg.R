@@ -79,7 +79,7 @@
 #'                                  X.frcast, X.st, X.o, spatInt.ind, forcast.ind, samples.store,
 #'                                  N.MCMC, burn_in1, burn_in2, adapt_seq, thin, adapt, tun_r,
 #'                                  tun_lambda, print.result, traceplot, true.values, simulation, init.seed)
-MCMC.sampler_model.reg<-function(
+MCMC.sampler_model.reg<-function(model,
                                 data_lik,
                                 nt,
                                 ns,
@@ -120,7 +120,7 @@ MCMC.sampler_model.reg<-function(
   sigma.matrix<-matrix(nrow=floor(N.MCMC/adapt), ncol= 2 + length(tun_r), byrow=TRUE)
   sigma.matrix[1,]<-c(tun_lambda[1], tun_lambda[2], tun_r)
 
-  init.names<- init_fun(p=p, q=q, ns = ns, nt = nt, nb = NULL, Y=Y.o, model = model,
+  init.names<- init_fun(p=p, q=q, ns = ns, nt = nt, nb = NULL, Y=Y.o, model=model,
                         data_lik = data_lik, delta=delta, seed=init.seed)
 
   cur.samples.r<- init.names$init$r
@@ -167,6 +167,7 @@ MCMC.sampler_model.reg<-function(
 
     }
 
+    #browser()
 
     ######## imputations #########
       if(data_lik=="Poisson"){

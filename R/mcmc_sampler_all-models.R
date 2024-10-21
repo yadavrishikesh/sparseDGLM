@@ -15,7 +15,7 @@
 #' @param traceplot Logical, if `TRUE`, trace plots of MCMC samples will be generated.
 #' @param true.values List of true parameter values (optional).
 #' @param simulation Logical, if `TRUE`, the function runs in simulation mode.
-#' @param data_lik Character, specifying the likelihood type (e.g., `"Poisson"`, `"NegB"`).
+#' @param data_lik Character, likelihood type. Options include `"Poisson"`, `"NegB"`, and `"lNormal"`.
 #' @param Y Matrix of response variables (observed and/or predicted).
 #' @param Ft Matrix of temporal covariates.
 #' @param G Transition matrix for the state-space model.
@@ -25,6 +25,7 @@
 #' @param forcast.ind Vector of indices for forecasting.
 #' @param sparse.info.sim List containing precomputed sparse model information (optional).
 #' @param tun_r Numeric, the tuning parameter for the `r` parameter in the negative binomial distribution.
+#' @param mesh.hyper List containing the infromations of hyperparameters when creating mesh nodes, namely on `max.edge`, `cutoff`, and `offset`
 #'
 #' @return A list containing the summary of hyperparameters, fixed effects, dynamic temporal coefficients, space-time predictions, and trace plots of MCMC samples.
 #'
@@ -63,8 +64,9 @@ MCMC.sampler.st.DGLM<- function(N.MCMC,
                                 loc,
                                 spatInt.ind,
                                 forcast.ind,
-                                samples.store,
-                                sparse.info.sim,
+                                samples.store = 250,
+                                sparse.info.sim = NULL,
+                                mesh.hyper = NULL,
                                 thin = 10,
                                 adapt = 100,
                                 tun_kappa = 1e-4,
@@ -75,6 +77,8 @@ MCMC.sampler.st.DGLM<- function(N.MCMC,
                                 true.values=NULL,
                                 simulation = FALSE,
                                 no_parallel_chain = 1){
+
+ # browser()
 
   nt<- nrow(Y) - length(forcast.ind)
   ns<- ncol(Y) - length(spatInt.ind)
@@ -128,20 +132,39 @@ MCMC.sampler.st.DGLM<- function(N.MCMC,
   loc.o<- loc[-spatInt.ind, ]
   loc.p<- loc[spatInt.ind, ]
 
-  #browser()
   ## distance matrices
   dist.mat.all<-  fields::rdist.earth(loc, loc, miles = FALSE)
-  dist.mat.all <- dist.mat.all / max(dist.mat.all)
+  min.dist <- min(dist.mat.all[dist.mat.all > 0])
+  max.dist <- max(dist.mat.all)
+
+  ### setting the hyper parameters of sparsity in sparse model
+  range_x <- diff(range(loc[, 1]))  # Range of longitude
+  range_y <- diff(range(loc[, 2]))  # Range of latitude
+  if(is.null(mesh.hyper)){
+    max.edge <- c(0.05 * max.dist, 0.2 * max.dist)
+    cutoff <- 0.01 * min.dist
+    offset <- c(0.05 * range_x, 0.1 * range_x)
+
+    mesh.hyper<- list(max.edge = max.edge, cutoff= cutoff, offset=offset)
+  } else{
+    max.edge = mesh.hyper$max.edge
+    cutoff =  mesh.hyper$cutoff
+    offset = mesh.hyper$offset
+  }
+
   dist.mat.o<- fields::rdist.earth(loc.o, loc.o, miles = FALSE)
-  dist.mat.o <- dist.mat.o / max(dist.mat.o)
+  max.dist<- max(dist.mat.o)
+  dist.mat.o <- dist.mat.o / max.dist
   delta<- max(dist.mat.o)
 
-  if(model =="sparse" & !simulation & is.null(sparse.info.sim) ){
+  dist.mat.all <- dist.mat.all / max(dist.mat.all)
 
-    INLA.mesh <- INLA::inla.mesh.2d(loc = as.matrix(loc.fit),
-                                    max.edge = c(1, 5)*0.04,
-                                    cutoff = 0.0001,
-                                    offset = c(0.04, 0.06)
+
+  if(model =="sparse" & !simulation & is.null(sparse.info.sim) ){
+    INLA.mesh <- INLA::inla.mesh.2d(loc = as.matrix(loc.o),
+                                    max.edge = max.edge,
+                                    cutoff = cutoff,
+                                    offset = offset
                                     )
     A.proj.o<- as.matrix(INLA::inla.spde.make.A(mesh = INLA.mesh, loc = as.matrix(loc.o)))
     A.proj.p<-as.matrix(INLA::inla.spde.make.A(mesh = INLA.mesh, loc = as.matrix(loc.p)))
@@ -151,15 +174,7 @@ MCMC.sampler.st.DGLM<- function(N.MCMC,
     g1.mat.o<- fem.mesh$g1
     g2.mat.o<- fem.mesh$g2
 
-  }else if (model =="dense"){
-
-  c.mat.o<- NULL
-  g1.mat.o<- NULL
-  g2.mat.o<- NULL
-  A.proj.o<- NULL
-  A.proj.p<- NULL
-
-  } else if(model =="sparse" & simulation & !is.null(sparse.info.sim)) {
+  }else if(model =="sparse" & simulation & !is.null(sparse.info.sim)) {
 
     INLA.mesh<- sparse.info.sim$INLA.mesh
     A.proj<- sparse.info.sim$A.proj
@@ -169,6 +184,13 @@ MCMC.sampler.st.DGLM<- function(N.MCMC,
     g1.mat.o<- sparse.info.sim$g1.mat
     g2.mat.o<- sparse.info.sim$g2.mat
 
+  } else{
+    INLA.mesh<- NULL
+    c.mat.o<- NULL
+    g1.mat.o<- NULL
+    g2.mat.o<- NULL
+    A.proj.o<- NULL
+    A.proj.p<- NULL
   }
 
   ### MCMC sampler related components
@@ -180,7 +202,7 @@ MCMC.sampler.st.DGLM<- function(N.MCMC,
 
 if(model=="bayes.reg"){ ## baseline model (Model with only fixed covariates
   parallel_chain<- parallel::mclapply(1:no_parallel_chain, FUN = function(ii){
-    MCMC.sampler_model.reg(
+    MCMC.sampler_model.reg(model = model,
       data_lik = data_lik, nt = nt, ns = ns, p = p, q = q, Y.o = Y.o, data.log.mean = data.log.mean,
       data.mean = data.mean, Y.intpl = Y.intpl, Y.frcast = Y.frcast, Y.st = Y.st, ind_NA_Y = ind_NA_data,
       X.o = X.o, quad.X.o = quad.X.o, X.intpl = X.intpl, X.frcast = X.frcast, X.st = X.st, X.p = X.p,
@@ -192,7 +214,7 @@ if(model=="bayes.reg"){ ## baseline model (Model with only fixed covariates
   }, mc.cores = no_parallel_chain)
 } else if(model == "dense"){
   parallel_chain<- parallel::mclapply(1:no_parallel_chain, FUN = function(ii){
-    MCMC.sampler_model.dense(
+    MCMC.sampler_model.dense(model = model,
       data_lik = data_lik, nt = nt, ns = ns, p = p, q = q, Y.o = Y.o, data.log.mean = data.log.mean,
       data.mean = data.mean, Y.intpl = Y.intpl, Y.frcast = Y.frcast, Y.st = Y.st, ind_NA_Y = ind_NA_data,
       X.o = X.o, quad.X.o = quad.X.o, X.intpl = X.intpl, X.frcast = X.frcast, X.st = X.st, X.p = X.p,
@@ -206,7 +228,7 @@ if(model=="bayes.reg"){ ## baseline model (Model with only fixed covariates
   }, mc.cores = no_parallel_chain)
 } else if(model == "sparse"){
   parallel_chain<- parallel::mclapply(1:no_parallel_chain, FUN = function(ii){
-    MCMC.sampler_model.sparse(
+    MCMC.sampler_model.sparse(model = model,
       data_lik = data_lik, nt = nt, ns = ns, p = p, q = q, Y.o = Y.o, data.log.mean = data.log.mean,
       data.mean = data.mean, Y.intpl = Y.intpl, Y.frcast = Y.frcast, Y.st = Y.st, ind_NA_Y = ind_NA_data,
       X.o = X.o, quad.X.o = quad.X.o, X.intpl = X.intpl, X.frcast = X.frcast, X.st = X.st, X.p = X.p,
@@ -242,7 +264,7 @@ if(model=="bayes.reg"){ ## baseline model (Model with only fixed covariates
   thin_burn_in<- floor((burn_in1 + burn_in2)/thin)
   if(model == "dense" | model =="sparse"){
   if(data_lik=="Poisson"){
-    kappa.samples<- sapply(1:4, function(jj) {traceplots.samples[[jj]]$samples.kappa[-(1:thin_burn_in)]}) %>% rowMeans
+    kappa.samples<- sapply(1:4, function(jj) {max.dist * traceplots.samples[[jj]]$samples.kappa[-(1:thin_burn_in)]}) %>% rowMeans
     sigma2.samples<- sapply(1:4, function(jj) {traceplots.samples[[jj]]$samples.sigma2[-(1:thin_burn_in)]}) %>% rowMeans
     tau2.samples<- sapply(1:4, function(jj) {traceplots.samples[[jj]]$samples.tau2[-(1:thin_burn_in)]}) %>% rowMeans
 
@@ -258,7 +280,7 @@ if(model=="bayes.reg"){ ## baseline model (Model with only fixed covariates
 
   } else if(data_lik=="NegB"){
     r.samples<- sapply(1:4, function(jj) {traceplots.samples[[jj]]$samples.r[-(1:thin_burn_in)]}) %>% rowMeans
-    kappa.samples<- sapply(1:4, function(jj) {traceplots.samples[[jj]]$samples.kappa[-(1:thin_burn_in)]}) %>% rowMeans
+    kappa.samples<- sapply(1:4, function(jj) {max.dist * traceplots.samples[[jj]]$samples.kappa[-(1:thin_burn_in)]}) %>% rowMeans
     sigma2.samples<- sapply(1:4, function(jj) {traceplots.samples[[jj]]$samples.sigma2[-(1:thin_burn_in)]}) %>% rowMeans
     tau2.samples<- sapply(1:4, function(jj) {traceplots.samples[[jj]]$samples.tau2[-(1:thin_burn_in)]}) %>% rowMeans
 
@@ -274,7 +296,7 @@ if(model=="bayes.reg"){ ## baseline model (Model with only fixed covariates
 
   } else{
     k.samples<- sapply(1:4, function(jj) {traceplots.samples[[jj]]$samples.k[-(1:thin_burn_in)]}) %>% rowMeans
-    kappa.samples<- sapply(1:4, function(jj) {traceplots.samples[[jj]]$samples.kappa[-(1:thin_burn_in)]}) %>% rowMeans
+    kappa.samples<- sapply(1:4, function(jj) {max.dist * traceplots.samples[[jj]]$samples.kappa[-(1:thin_burn_in)]}) %>% rowMeans
     sigma2.samples<- sapply(1:4, function(jj) {traceplots.samples[[jj]]$samples.sigma2[-(1:thin_burn_in)]}) %>% rowMeans
     tau2.samples<- sapply(1:4, function(jj) {traceplots.samples[[jj]]$samples.tau2[-(1:thin_burn_in)]}) %>% rowMeans
 
@@ -351,7 +373,11 @@ if(model=="bayes.reg"){ ## baseline model (Model with only fixed covariates
                                 quant2.5  = apply(beta.samples, MARGIN = 2, FUN = quantile, probs =0.025),
                                 quant97.5  = apply(beta.samples, MARGIN = 2, FUN = quantile, probs =0.975)
   )
+  if(simulation){
   rownames(sumry.beta) = paste0("beta",1:q)
+  }else{
+  rownames(sumry.beta) = dimnames(X)[[3]]
+  }
 
 
   if(model == "bayes.reg"){
@@ -635,6 +661,14 @@ return(
        "original.data" = list(data.fit= Y.o, data.all = Y),
        "forcast.ind" = forcast.ind,
        "spatInt.ind" = spatInt.ind,
+       "sparse.info" =  list(INLA.mesh = INLA.mesh,
+                             A.proj.o = A.proj.o,
+                             A.proj.p =  A.proj.p,
+                             c.mat.o =  A.proj.p,
+                             g1.mat.o = g1.mat.o,
+                             g2.mat.o = g2.mat.o,
+                             mesh.hyper
+                             ),
        "nt" = nt,
        "ns" = ns,
        "model" = model,

@@ -5,6 +5,7 @@
 \title{MCMC Sampler for Sparse Spatio-Temporal Dynamic Generalized Linear Model}
 \usage{
 MCMC.sampler_model.sparse(
+  model,
   data_lik,
   nt,
   ns,

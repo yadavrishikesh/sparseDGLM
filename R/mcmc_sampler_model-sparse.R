@@ -113,7 +113,8 @@
 #'                                     samples.store, N.MCMC, burn_in1, burn_in2, adapt_seq,
 #'                                     thin, adapt, tun_r, tun_kappa, tun_lambda, print.result,
 #'                                     traceplot, true.values, simulation, init.seed)
-MCMC.sampler_model.sparse <- function(data_lik,
+MCMC.sampler_model.sparse <- function(model,
+                                      data_lik,
                                      nt,
                                      ns,
                                      p,
@@ -177,7 +178,7 @@ MCMC.sampler_model.sparse <- function(data_lik,
                        byrow=TRUE) ## storing the adaptive scale parameters ## storing the adaptive scale parameters
   sigma.matrix[1,]<-c(tun_lambda[1], tun_lambda[2], tun_kappa, tun_r)
 
-  init.names<- init_fun(p=p, q=q, ns = ns, nt = nt, nb=nb, Y=Y.o, model = model,
+  init.names<- init_fun(p=p, q=q, ns = ns, nt = nt, nb=nb, Y=Y.o, model=model,
                         data_lik = data_lik, delta=delta, seed=init.seed)
 
   cur.samples.r<- init.names$init$r
@@ -248,7 +249,9 @@ MCMC.sampler_model.sparse <- function(data_lik,
       rate.r<- 0
     }
 
-
+    # browser()
+    #
+    # print(i)
     ######## imputations #########
       if(data_lik=="Poisson"){
         y.imputed<- matrix(rpois(n  = ns * nt, lambda = exp(cur.samples.lambda)), nrow = nt, ncol=ns)
@@ -426,6 +429,7 @@ MCMC.sampler_model.sparse <- function(data_lik,
     if(i == samples.save[ls]){
       samples.miss.imput.Y.save[ls,]<- y.imputed[ind_NA_Y]
       samples.spat.pred.save[ls,,]<- pred.sparse(nt = nt, ns = ns, nb=nb,
+                                                 data_lik = data_lik,
                                                             spatInt.ind = spatInt.ind,
                                                             forcast.ind = forcast.ind, pred_type = "spatInt",
                                                             X.intpl = X.intpl,
@@ -449,6 +453,7 @@ MCMC.sampler_model.sparse <- function(data_lik,
                                                             k.samples = cur.samples.k)$y.pred
 
       samples.forecast.save[ls,,]<- pred.sparse(nt = nt, ns = ns, nb=nb,
+                                                data_lik = data_lik,
                                                 spatInt.ind = spatInt.ind,
                                                 forcast.ind = forcast.ind, pred_type = "forecast",
                                                 X.intpl = X.intpl,
@@ -474,6 +479,7 @@ MCMC.sampler_model.sparse <- function(data_lik,
 
 
       samples.spatInt_forecast.save[ls,,]<- pred.sparse(nt = nt, ns = ns, nb=nb,
+                                                        data_lik = data_lik,
                                                         spatInt.ind = spatInt.ind,
                                                         forcast.ind = forcast.ind, pred_type = "spatInt_forecast",
                                                         X.intpl = X.intpl,
@@ -506,20 +512,11 @@ MCMC.sampler_model.sparse <- function(data_lik,
                       cur.samples.R[1:3], cur.samples.beta,
                       cur.samples.theta[1:4], cur.samples.lambda[c(1,10,nt+10, nt+15)])
 
-
-      if(model=="M2.1-sp"){
-        samples.theta.save<- NULL
-      } else{
         samples.theta.save<- abind::abind(samples.theta.save, cur.samples.theta, along = 3)
-      }
-
 
       j=j+1
     }
     if((i%%thin)==0 | i==1){  ## this is the thinning steps and adapt is the number of iterations after which i update the variance of MALA and random walk algorithms
-      #print(list(range(cur.samples.mu.st), range(sim_M0$mu.st)))
-      #print(range(sim_M0$R.st))
-      print(list(range(cur.samples.R)))
       par(mfrow=c(6,6),oma=c(0,0,2,0),mar=c(4,5,1,1))
       if(print.result==TRUE){
         if(i< (burn_in1+burn_in2+2)){

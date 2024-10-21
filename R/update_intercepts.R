@@ -165,11 +165,11 @@ update_intercept.sparse<- function(nt,
 ){
   A_inv.nt<- tau2^(-1) * t.A.A + Q/sigma2
   chol.latent.cov.inv.nt<- spam::chol(A_inv.nt)
-  tchol.latent.cov.inv.nt<-  t(chol.latent.cov.inv.nt)
+  tchol.latent.cov.inv.nt<-   Matrix::t(chol.latent.cov.inv.nt)
 
   A_inv.others <- tau2^(-1) * t.A.A + 2 * Q/sigma2
   chol.latent.cov.inv.other<- spam::chol(A_inv.others)
-  tchol.latent.cov.inv.other<- t(chol.latent.cov.inv.other)
+  tchol.latent.cov.inv.other<-  Matrix::t(chol.latent.cov.inv.other)
 
   lambdas.part<- tau2^(-1) * (lambdas_mean %*% t.A)
 

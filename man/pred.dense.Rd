@@ -10,6 +10,7 @@ pred.dense(
   data_lik,
   spatInt.ind,
   forcast.ind,
+  cor.type,
   pred_type = c("spatInt", "forecast", "spatInt_forecast"),
   X.intpl,
   X.frcast,
@@ -39,6 +40,8 @@ pred.dense(
 \item{spatInt.ind}{Integer vector, indices of new locations for spatial interpolation or future forecasting.}
 
 \item{forcast.ind}{Integer vector, time indices for spatial predictions (e.g., `1` means 1-step ahead prediction; `1:7` means prediction for the next 7 time points).}
+
+\item{cor.type}{Character, specifying the correlation type for the dense model. Options include `"Matern0.5"`, `"Matern1"`, `"Matern1.5"`, `"Matern2.5"`, and `"MaternInf"`.}
 
 \item{pred_type}{Character, type of prediction. Options are `"spatInt"` for spatial prediction at new spatial locations, `"forecast"` for future forecasting at observed sites, and `"spatInt_forecast"` for future forecasting at new spatial locations.}
 

@@ -10,6 +10,7 @@ sim_synthetic_data(
   data_lik,
   loc,
   mesh.inf = NULL,
+  mesh.hyper = NULL,
   hyper,
   beta0,
   beta,

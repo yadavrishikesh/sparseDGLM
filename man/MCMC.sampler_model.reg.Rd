@@ -5,6 +5,7 @@
 \title{MCMC Sampler for Bayesian Regression Model With Only Fixed Effects}
 \usage{
 MCMC.sampler_model.reg(
+  model,
   data_lik,
   nt,
   ns,

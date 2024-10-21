@@ -16,8 +16,9 @@ MCMC.sampler.st.DGLM(
   loc,
   spatInt.ind,
   forcast.ind,
-  samples.store,
-  sparse.info.sim,
+  samples.store = 250,
+  sparse.info.sim = NULL,
+  mesh.hyper = NULL,
   thin = 10,
   adapt = 100,
   tun_kappa = 1e-04,
@@ -35,7 +36,7 @@ MCMC.sampler.st.DGLM(
 
 \item{model}{Character, specifying the model type. Possible values are `"bayes.reg"`, `"dense"`, or `"sparse"`.}
 
-\item{data_lik}{Character, specifying the likelihood type (e.g., `"Poisson"`, `"NegB"`).}
+\item{data_lik}{Character, likelihood type. Options include `"Poisson"`, `"NegB"`, and `"lNormal"`.}
 
 \item{cor.type}{Character, specifying the correlation type for the dense model. Options include `"Matern0.5"`, `"Matern1"`, `"Matern1.5"`, `"Matern2.5"`, and `"MaternInf"`.}
 
@@ -56,6 +57,8 @@ MCMC.sampler.st.DGLM(
 \item{samples.store}{Integer, the number of samples to store.}
 
 \item{sparse.info.sim}{List containing precomputed sparse model information (optional).}
+
+\item{mesh.hyper}{List containing the infromations of hyperparameters when creating mesh nodes, namely on `max.edge`, `cutoff`, and `offset`}
 
 \item{thin}{Integer, the thinning interval for MCMC samples.}
 

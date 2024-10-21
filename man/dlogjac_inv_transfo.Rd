@@ -24,7 +24,7 @@ The gradient depends on the values of `lb` and `ub`:
 - If both `lb` and `ub` are infinite, the gradient is 0.
 - If `lb` is finite and `ub` is infinite, the gradient is 1.
 - If `lb` is infinite and `ub` is finite, the gradient is 1.
-- If both bounds are finite, the gradient is calculated as \(-1 + 2 \times \text{plogis}(-tpar)\).
+- If both bounds are finite, the gradient is calculated as \(-1 + 2 x {plogis}(-tpar)\).
 }
 \examples{
 dlogjac_inv_transfo(tpar = 0.5, lb = 0, ub = 1)

@@ -108,7 +108,8 @@
 #'                                    N.MCMC, burn_in1, burn_in2, adapt_seq, thin, adapt,
 #'                                    tun_r, tun_kappa, tun_lambda, print.result, traceplot,
 #'                                    true.values, simulation, init.seed)
-MCMC.sampler_model.dense <- function(data_lik,
+MCMC.sampler_model.dense <- function(model,
+                                     data_lik,
                                   nt,
                                   ns,
                                   p,
@@ -165,7 +166,7 @@ MCMC.sampler_model.dense <- function(data_lik,
                        byrow=TRUE)
   sigma.matrix[1,]<-c(tun_lambda[1], tun_lambda[2], tun_r, tun_kappa)
 
-  init.names<- init_fun(p=p, q=q, ns = ns, nt = nt,  nb=NULL, Y=Y.o, model = model,
+  init.names<- init_fun(p=p, q=q, ns = ns, nt = nt,  nb=NULL, Y=Y.o, model=model,
                         data_lik = data_lik, delta=delta, seed=init.seed)
 
   cur.samples.r<- init.names$init$r
@@ -238,7 +239,7 @@ MCMC.sampler_model.dense <- function(data_lik,
       rate.lambda<- matrix(0, nrow = nt, ncol = ns)
       rate.r<- 0
     }
-
+#browser()
 
     ######## imputations #########
       if(data_lik=="Poisson"){
@@ -378,7 +379,7 @@ MCMC.sampler_model.dense <- function(data_lik,
                                                  cur.lambda = cur.samples.lambda,
                                                  mean.lambda =  cur.samples.mu.st +  Ft.mean + comp.cov,
                                                  tau2 = cur.samples.tau2,
-                                                 r=  cur.sample.r,
+                                                 r=  cur.samples.r,
                                                  k = cur.samples.k,
                                                  data_lik = data_lik,
                                                  tun_lambda = tun_lambda)
@@ -415,6 +416,7 @@ MCMC.sampler_model.dense <- function(data_lik,
                                                 data_lik=data_lik,
                                                 spatInt.ind = spatInt.ind,
                                                 forcast.ind = forcast.ind,
+                                                cor.type=cor.type,
                                                 pred_type = "spatInt",
                                                 X.intpl = X.intpl,
                                                 X.frcast = X.frcast,
@@ -438,6 +440,7 @@ MCMC.sampler_model.dense <- function(data_lik,
                                                 data_lik=data_lik,
                                                 spatInt.ind = spatInt.ind,
                                                 forcast.ind = forcast.ind,
+                                                cor.type=cor.type,
                                                 pred_type = "forecast",
                                                 X.intpl = X.intpl,
                                                 X.frcast = X.frcast,
@@ -461,6 +464,7 @@ MCMC.sampler_model.dense <- function(data_lik,
                                                        data_lik=data_lik,
                                                        spatInt.ind = spatInt.ind,
                                                        forcast.ind = forcast.ind,
+                                                       cor.type = cor.type,
                                                        pred_type = "spatInt_forecast",
                                                        X.intpl = X.intpl,
                                                        X.frcast = X.frcast,

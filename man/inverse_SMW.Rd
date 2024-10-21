@@ -20,8 +20,8 @@ A matrix representing the inverse of the original matrix calculated using the SM
 This function computes the inverse of a matrix using the Sherman-Morrison-Woodbury (SMW) formula.
 }
 \details{
-The function calculates the inverse of a matrix of the form \( A + u v^\top \) efficiently using the SMW formula.
-Here, the matrix \( A \) is diagonal with elements \(\tau\), and \( u \) and \( v \) are vectors of 1s.
+The function calculates the inverse of a matrix of the form \( A + u v^top \) efficiently using the SMW formula.
+Here, the matrix \( A \) is diagonal with elements \(tau\), and \( u \) and \( v \) are vectors of 1s.
 }
 \examples{
 alpha <- 0.5

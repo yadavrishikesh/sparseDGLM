@@ -8,6 +8,7 @@ pred.sparse(
   nt,
   ns,
   nb,
+  data_lik,
   spatInt.ind,
   forcast.ind,
   pred_type = c("spatInt", "forecast", "spatInt_forecast"),
