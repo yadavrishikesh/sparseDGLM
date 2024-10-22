@@ -667,7 +667,7 @@ return(
                              c.mat.o =  A.proj.p,
                              g1.mat.o = g1.mat.o,
                              g2.mat.o = g2.mat.o,
-                             mesh.hyper
+                             mesh.hyper = mesh.hyper
                              ),
        "nt" = nt,
        "ns" = ns,
