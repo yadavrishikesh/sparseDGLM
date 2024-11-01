@@ -17,15 +17,15 @@
 #' @param simulation Logical, if `TRUE`, the function runs in simulation mode.
 #' @param data_lik Character, likelihood type. Options include `"Poisson"`, `"NegB"`, and `"lNormal"`.
 #' @param Y Matrix of response variables (observed and/or predicted).
-#' @param Ft Matrix of temporal covariates.
-#' @param G Transition matrix for the state-space model.
+#' @param num_harmonics number of hamrmonics.
+#' @param seas.period periodicity of seasonality. For example for hourly data, if we want to account for daily seasonality it should be 24. For daily data it should be set to 7 to account for weekly seasonality.
 #' @param X Array of covariates (design matrix).
 #' @param loc Matrix of spatial locations.
 #' @param spatInt.ind Vector of indices for spatial interpolation.
 #' @param forcast.ind Vector of indices for forecasting.
 #' @param sparse.info.sim List containing precomputed sparse model information (optional).
 #' @param tun_r Numeric, the tuning parameter for the `r` parameter in the negative binomial distribution.
-#' @param mesh.hyper List containing the infromations of hyperparameters when creating mesh nodes, namely on `max.edge`, `cutoff`, and `offset`
+#' @param mesh.hyper List containing the information of hyperparameters when creating mesh nodes, namely on `max.edge`, `cutoff`, and `offset`
 #'
 #' @return A list containing the summary of hyperparameters, fixed effects, dynamic temporal coefficients, space-time predictions, and trace plots of MCMC samples.
 #'
@@ -58,8 +58,8 @@ MCMC.sampler.st.DGLM<- function(N.MCMC,
                                 data_lik = "Poisson",
                                 cor.type = "Matern0.5",
                                 Y,
-                                Ft,
-                                G,
+                                num_harmonics,
+                                seas.period,
                                 X,
                                 loc,
                                 spatInt.ind,
@@ -79,6 +79,12 @@ MCMC.sampler.st.DGLM<- function(N.MCMC,
                                 no_parallel_chain = 1){
 
  # browser()
+  ## harmonics  extraction
+  harmo_info<- generate_harmonic_matrices(nt = nrow(Y),
+                             num_harmonics = num_harmonics,
+                             period = seas.period)
+  G<- harmo_info$G.all
+  Ft<- harmo_info$Ft.all
 
   nt<- nrow(Y) - length(forcast.ind)
   ns<- ncol(Y) - length(spatInt.ind)

@@ -10,8 +10,8 @@ MCMC.sampler.st.DGLM(
   data_lik = "Poisson",
   cor.type = "Matern0.5",
   Y,
-  Ft,
-  G,
+  num_harmonics,
+  seas.period,
   X,
   loc,
   spatInt.ind,
@@ -42,9 +42,9 @@ MCMC.sampler.st.DGLM(
 
 \item{Y}{Matrix of response variables (observed and/or predicted).}
 
-\item{Ft}{Matrix of temporal covariates.}
+\item{num_harmonics}{number of hamrmonics.}
 
-\item{G}{Transition matrix for the state-space model.}
+\item{seas.period}{periodicity of seasonality. For example for hourly data, if we want to account for daily seasonality it should be 24. For daily data it should be set to 7 to account for weekly seasonality.}
 
 \item{X}{Array of covariates (design matrix).}
 
@@ -58,7 +58,7 @@ MCMC.sampler.st.DGLM(
 
 \item{sparse.info.sim}{List containing precomputed sparse model information (optional).}
 
-\item{mesh.hyper}{List containing the infromations of hyperparameters when creating mesh nodes, namely on `max.edge`, `cutoff`, and `offset`}
+\item{mesh.hyper}{List containing the information of hyperparameters when creating mesh nodes, namely on `max.edge`, `cutoff`, and `offset`}
 
 \item{thin}{Integer, the thinning interval for MCMC samples.}
 
