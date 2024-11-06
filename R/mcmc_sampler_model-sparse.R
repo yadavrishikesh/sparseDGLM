@@ -49,6 +49,8 @@
 #' @param print.result Logical, if `TRUE`, prints the MCMC results.
 #' @param traceplot Logical, if `TRUE`, generates trace plots of MCMC samples.
 #' @param true.values List of true parameter values (optional).
+#' @param init_beta initial values for beta set by pre-run GLM counterpart
+#' @param init_lambda initial values for linear predictors set by pre-run GLM counterpart
 #' @param simulation Logical, if `TRUE`, the function runs in simulation mode.
 #' @param init.seed Integer, seed for random number generation to ensure reproducibility.
 #' @param ... Additional arguments passed to other methods.
@@ -161,6 +163,8 @@ MCMC.sampler_model.sparse <- function(model,
                                      print.result,
                                      traceplot,
                                      true.values,
+                                     init_beta,
+                                     init_lambda,
                                      simulation,
                                      init.seed,
                                      ...)
@@ -188,9 +192,9 @@ MCMC.sampler_model.sparse <- function(model,
   cur.samples.tau2<- init.names$init$tau2
   cur.samples.Wt<- init.names$init$Wt
   cur.samples.R<- init.names$init$R.st
-  cur.samples.beta<- init.names$init$beta
+  cur.samples.beta<- init_beta # init.names$init$beta
   cur.samples.theta<- init.names$init$theta
-  cur.samples.lambda<- init.names$init$lambda_init
+  cur.samples.lambda<- init_lambda # init.names$init$lambda_init
 
   samples.theta.save<- cur.samples.theta
   ### saving the Chain for all the hyper parameters and some latent parameters

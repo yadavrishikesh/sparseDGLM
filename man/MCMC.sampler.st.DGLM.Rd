@@ -5,25 +5,21 @@
 \title{MCMC Sampler for Spatio-Temporal Dynamic Generalized Linear Models (DGLM)}
 \usage{
 MCMC.sampler.st.DGLM(
-  N.MCMC,
+  Y,
+  X,
+  loc,
+  num_harmonics,
+  seas.period,
   model = "dense",
   data_lik = "Poisson",
   cor.type = "Matern0.5",
-  Y,
-  num_harmonics,
-  seas.period,
-  X,
-  loc,
   spatInt.ind,
   forcast.ind,
+  N.MCMC = 5000,
   samples.store = 250,
   sparse.info.sim = NULL,
   mesh.hyper = NULL,
   thin = 10,
-  adapt = 100,
-  tun_kappa = 1e-04,
-  tun_lambda = 1,
-  tun_r = 0.01,
   print.result = TRUE,
   traceplot = FALSE,
   true.values = NULL,
@@ -32,43 +28,52 @@ MCMC.sampler.st.DGLM(
 )
 }
 \arguments{
-\item{N.MCMC}{Integer, the number of MCMC iterations.}
-
-\item{model}{Character, specifying the model type. Possible values are `"bayes.reg"`, `"dense"`, or `"sparse"`.}
-
-\item{data_lik}{Character, likelihood type. Options include `"Poisson"`, `"NegB"`, and `"lNormal"`.}
-
-\item{cor.type}{Character, specifying the correlation type for the dense model. Options include `"Matern0.5"`, `"Matern1"`, `"Matern1.5"`, `"Matern2.5"`, and `"MaternInf"`.}
-
 \item{Y}{Matrix of response variables (observed and/or predicted).}
-
-\item{num_harmonics}{number of hamrmonics.}
-
-\item{seas.period}{periodicity of seasonality. For example for hourly data, if we want to account for daily seasonality it should be 24. For daily data it should be set to 7 to account for weekly seasonality.}
 
 \item{X}{Array of covariates (design matrix).}
 
 \item{loc}{Matrix of spatial locations.}
 
+\item{num_harmonics}{Integer, the number of harmonics.}
+
+\item{seas.period}{Integer, specifying the periodicity of seasonality. For example, for hourly data, daily seasonality should be set to 24; for daily data, weekly seasonality should be set to 7.}
+
+\item{model}{Character, specifying the model type. Possible values are:
+\itemize{
+  \item `"bayes.reg"`: Bayesian regression model.
+  \item `"dense"`: Dense spatio-temporal model.
+  \item `"sparse"`: Sparse spatio-temporal model.
+}}
+
+\item{data_lik}{Character, specifying the likelihood type. Options include:
+\itemize{
+  \item `"Poisson"`: Poisson likelihood.
+  \item `"NegB"`: Negative Binomial likelihood.
+  \item `"lNormal"`: Log-normal likelihood.
+}}
+
+\item{cor.type}{Character, specifying the correlation type for the dense model. Options include:
+\itemize{
+  \item `"Matern0.5"`: Matern correlation with smoothness parameter 0.5.
+  \item `"Matern1"`: Matern correlation with smoothness parameter 1.
+  \item `"Matern1.5"`: Matern correlation with smoothness parameter 1.5.
+  \item `"Matern2.5"`: Matern correlation with smoothness parameter 2.5.
+  \item `"MaternInf"`: Matern correlation with infinite smoothness (Gaussian correlation).
+}}
+
 \item{spatInt.ind}{Vector of indices for spatial interpolation.}
 
 \item{forcast.ind}{Vector of indices for forecasting.}
 
-\item{samples.store}{Integer, the number of samples to store.}
+\item{N.MCMC}{Integer, specifying the number of MCMC iterations.}
+
+\item{samples.store}{Integer, specifying the number of samples to store.}
 
 \item{sparse.info.sim}{List containing precomputed sparse model information (optional).}
 
-\item{mesh.hyper}{List containing the information of hyperparameters when creating mesh nodes, namely on `max.edge`, `cutoff`, and `offset`}
+\item{mesh.hyper}{List containing the information of hyperparameters when creating mesh nodes, specifically on `max.edge`, `cutoff`, and `offset`.}
 
-\item{thin}{Integer, the thinning interval for MCMC samples.}
-
-\item{adapt}{Integer, the adaptation interval for tuning.}
-
-\item{tun_kappa}{Numeric, the tuning parameter for `kappa`.}
-
-\item{tun_lambda}{Numeric, the tuning parameter for `lambda`.}
-
-\item{tun_r}{Numeric, the tuning parameter for the `r` parameter in the negative binomial distribution.}
+\item{thin}{Integer, specifying the thinning interval for MCMC samples.}
 
 \item{print.result}{Logical, if `TRUE`, results will be printed.}
 
@@ -81,12 +86,45 @@ MCMC.sampler.st.DGLM(
 \item{no_parallel_chain}{Integer, specifying the number of parallel chains (1 to 4).}
 }
 \value{
-A list containing the summary of hyperparameters, fixed effects, dynamic temporal coefficients, space-time predictions, and trace plots of MCMC samples.
+A list containing the following elements:
+\describe{
+  \item{"summery.hyper"}{A list containing summary statistics of hyperparameters and variance of state variables.}
+  \item{"summary.fixed.effects.coeff"}{A list containing the overall intercept and coefficient estimates for covariates.}
+  \item{"predictions"}{A list of predictions including:
+    \itemize{
+      \item{"within.sample"}{Within-sample predictions and imputations.}
+      \item{"spatial"}{Spatial interpolation predictions.}
+      \item{"forecast"}{Forecasted values.}
+      \item{"space.time"}{Space-time predictions.}
+    }
+  }
+  \item{"summary.dynamic.temp.coeff"}{Summary of dynamic temporal coefficients.}
+  \item{"summary.st.intercepot"}{A list containing the SPDE basis weights and spatial-temporal intercept estimates.}
+  \item{"summary.linear.predictor"}{Summary of the linear predictor values.}
+  \item{"traceplots.samples"}{Trace plots of MCMC samples.}
+  \item{"run.time.costly.comt."}{A list with the runtime details for kappa and intercept parameters.}
+  \item{"N.MCMC"}{The number of MCMC iterations.}
+  \item{"original.data"}{A list containing:
+    \itemize{
+      \item{"data.fit"}{Original data used for fitting.}
+      \item{"data.all"}{All available data.}
+    }
+  }
+  \item{"forcast.ind"}{Indices for forecasting.}
+  \item{"spatInt.ind"}{Indices for spatial interpolation.}
+  \item{"sparse.info"}{A list with sparse model information, including INLA mesh details and projection matrices.}
+  \item{"nt"}{The number of time points in the model.}
+  \item{"ns"}{The number of spatial locations in the model.}
+  \item{"model"}{The type of model used.}
+  \item{"data_lik"}{The likelihood type used in the model.}
+  \item{"cor.type"}{The correlation type used for the dense model.}
+}
 }
 \description{
-This function performs MCMC sampling for spatio-temporal dynamic generalized linear models (DGLM), including dense and sparse models, with support for parallel chains and space-time predictions.
+This function performs MCMC based inference  and spatiotemporal predictions for spatiotemporal dynamic generalized linear models (st-DGLM), including dense and its sparse model counterparts.
 }
 \examples{
+\dontrun{
 N.MCMC <- 1000
 model <- "dense"
 cor.type <- "Matern1.5"
@@ -107,4 +145,5 @@ result <- MCMC.sampler.st.DGLM(N.MCMC, model, cor.type, no_parallel_chain,
                                samples.store, thin, adapt, tun_kappa, tun_lambda,
                                Y = Y, Ft = Ft, G = G, X = X, loc = loc,
                                spatInt.ind = spatInt.ind, forcast.ind = forcast.ind)
+}
 }

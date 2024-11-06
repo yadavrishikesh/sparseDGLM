@@ -1,37 +1,83 @@
 #' MCMC Sampler for Spatio-Temporal Dynamic Generalized Linear Models (DGLM)
 #'
-#' This function performs MCMC sampling for spatio-temporal dynamic generalized linear models (DGLM), including dense and sparse models, with support for parallel chains and space-time predictions.
+#' This function performs MCMC based inference  and spatiotemporal predictions for spatiotemporal dynamic generalized linear models (st-DGLM), including dense and its sparse model counterparts.
 #'
-#' @param N.MCMC Integer, the number of MCMC iterations.
-#' @param model Character, specifying the model type. Possible values are `"bayes.reg"`, `"dense"`, or `"sparse"`.
-#' @param cor.type Character, specifying the correlation type for the dense model. Options include `"Matern0.5"`, `"Matern1"`, `"Matern1.5"`, `"Matern2.5"`, and `"MaternInf"`.
-#' @param no_parallel_chain Integer, specifying the number of parallel chains (1 to 4).
-#' @param samples.store Integer, the number of samples to store.
-#' @param thin Integer, the thinning interval for MCMC samples.
-#' @param adapt Integer, the adaptation interval for tuning.
-#' @param tun_kappa Numeric, the tuning parameter for `kappa`.
-#' @param tun_lambda Numeric, the tuning parameter for `lambda`.
+#' @param Y Matrix of response variables (observed and/or predicted).
+#' @param X Array of covariates (design matrix).
+#' @param loc Matrix of spatial locations.
+#' @param num_harmonics Integer, the number of harmonics.
+#' @param seas.period Integer, specifying the periodicity of seasonality. For example, for hourly data, daily seasonality should be set to 24; for daily data, weekly seasonality should be set to 7.
+#' @param model Character, specifying the model type. Possible values are:
+#'   \itemize{
+#'     \item `"bayes.reg"`: Bayesian regression model.
+#'     \item `"dense"`: Dense spatio-temporal model.
+#'     \item `"sparse"`: Sparse spatio-temporal model.
+#'   }
+#' @param data_lik Character, specifying the likelihood type. Options include:
+#'   \itemize{
+#'     \item `"Poisson"`: Poisson likelihood.
+#'     \item `"NegB"`: Negative Binomial likelihood.
+#'     \item `"lNormal"`: Log-normal likelihood.
+#'   }
+#' @param cor.type Character, specifying the correlation type for the dense model. Options include:
+#'   \itemize{
+#'     \item `"Matern0.5"`: Matern correlation with smoothness parameter 0.5.
+#'     \item `"Matern1"`: Matern correlation with smoothness parameter 1.
+#'     \item `"Matern1.5"`: Matern correlation with smoothness parameter 1.5.
+#'     \item `"Matern2.5"`: Matern correlation with smoothness parameter 2.5.
+#'     \item `"MaternInf"`: Matern correlation with infinite smoothness (Gaussian correlation).
+#'   }
+#' @param spatInt.ind Vector of indices for spatial interpolation.
+#' @param forcast.ind Vector of indices for forecasting.
+#' @param N.MCMC Integer, specifying the number of MCMC iterations.
+#' @param samples.store Integer, specifying the number of samples to store.
+#' @param sparse.info.sim List containing precomputed sparse model information (optional).
+#' @param mesh.hyper List containing the information of hyperparameters when creating mesh nodes, specifically on `max.edge`, `cutoff`, and `offset`.
+#' @param thin Integer, specifying the thinning interval for MCMC samples.
 #' @param print.result Logical, if `TRUE`, results will be printed.
 #' @param traceplot Logical, if `TRUE`, trace plots of MCMC samples will be generated.
 #' @param true.values List of true parameter values (optional).
 #' @param simulation Logical, if `TRUE`, the function runs in simulation mode.
-#' @param data_lik Character, likelihood type. Options include `"Poisson"`, `"NegB"`, and `"lNormal"`.
-#' @param Y Matrix of response variables (observed and/or predicted).
-#' @param num_harmonics number of hamrmonics.
-#' @param seas.period periodicity of seasonality. For example for hourly data, if we want to account for daily seasonality it should be 24. For daily data it should be set to 7 to account for weekly seasonality.
-#' @param X Array of covariates (design matrix).
-#' @param loc Matrix of spatial locations.
-#' @param spatInt.ind Vector of indices for spatial interpolation.
-#' @param forcast.ind Vector of indices for forecasting.
-#' @param sparse.info.sim List containing precomputed sparse model information (optional).
-#' @param tun_r Numeric, the tuning parameter for the `r` parameter in the negative binomial distribution.
-#' @param mesh.hyper List containing the information of hyperparameters when creating mesh nodes, namely on `max.edge`, `cutoff`, and `offset`
+#' @param no_parallel_chain Integer, specifying the number of parallel chains (1 to 4).
 #'
-#' @return A list containing the summary of hyperparameters, fixed effects, dynamic temporal coefficients, space-time predictions, and trace plots of MCMC samples.
+#' @return A list containing the following elements:
+#' \describe{
+#'   \item{"summery.hyper"}{A list containing summary statistics of hyperparameters and variance of state variables.}
+#'   \item{"summary.fixed.effects.coeff"}{A list containing the overall intercept and coefficient estimates for covariates.}
+#'   \item{"predictions"}{A list of predictions including:
+#'     \itemize{
+#'       \item{"within.sample"}{Within-sample predictions and imputations.}
+#'       \item{"spatial"}{Spatial interpolation predictions.}
+#'       \item{"forecast"}{Forecasted values.}
+#'       \item{"space.time"}{Space-time predictions.}
+#'     }
+#'   }
+#'   \item{"summary.dynamic.temp.coeff"}{Summary of dynamic temporal coefficients.}
+#'   \item{"summary.st.intercepot"}{A list containing the SPDE basis weights and spatial-temporal intercept estimates.}
+#'   \item{"summary.linear.predictor"}{Summary of the linear predictor values.}
+#'   \item{"traceplots.samples"}{Trace plots of MCMC samples.}
+#'   \item{"run.time.costly.comt."}{A list with the runtime details for kappa and intercept parameters.}
+#'   \item{"N.MCMC"}{The number of MCMC iterations.}
+#'   \item{"original.data"}{A list containing:
+#'     \itemize{
+#'       \item{"data.fit"}{Original data used for fitting.}
+#'       \item{"data.all"}{All available data.}
+#'     }
+#'   }
+#'   \item{"forcast.ind"}{Indices for forecasting.}
+#'   \item{"spatInt.ind"}{Indices for spatial interpolation.}
+#'   \item{"sparse.info"}{A list with sparse model information, including INLA mesh details and projection matrices.}
+#'   \item{"nt"}{The number of time points in the model.}
+#'   \item{"ns"}{The number of spatial locations in the model.}
+#'   \item{"model"}{The type of model used.}
+#'   \item{"data_lik"}{The likelihood type used in the model.}
+#'   \item{"cor.type"}{The correlation type used for the dense model.}
+#' }
 #'
 #' @export
 #'
 #' @examples
+#' \dontrun{
 #' N.MCMC <- 1000
 #' model <- "dense"
 #' cor.type <- "Matern1.5"
@@ -52,33 +98,34 @@
 #'                                samples.store, thin, adapt, tun_kappa, tun_lambda,
 #'                                Y = Y, Ft = Ft, G = G, X = X, loc = loc,
 #'                                spatInt.ind = spatInt.ind, forcast.ind = forcast.ind)
-#' @examples
-MCMC.sampler.st.DGLM<- function(N.MCMC,
+#' }
+MCMC.sampler.st.DGLM<- function(Y,
+                                X,
+                                loc,
+                                num_harmonics,
+                                seas.period,
                                 model = "dense",
                                 data_lik = "Poisson",
                                 cor.type = "Matern0.5",
-                                Y,
-                                num_harmonics,
-                                seas.period,
-                                X,
-                                loc,
                                 spatInt.ind,
                                 forcast.ind,
+                                N.MCMC = 5000,
                                 samples.store = 250,
                                 sparse.info.sim = NULL,
                                 mesh.hyper = NULL,
                                 thin = 10,
-                                adapt = 100,
-                                tun_kappa = 1e-4,
-                                tun_lambda = 1,
-                                tun_r = 1e-2,
                                 print.result=TRUE,
                                 traceplot=FALSE,
                                 true.values=NULL,
                                 simulation = FALSE,
                                 no_parallel_chain = 1){
 
- # browser()
+ ## some fixed MCMC hyperparameters
+  adapt = 100
+  tun_kappa = 1e-4
+  tun_lambda = 1
+  tun_r = 1e-2
+
   ## harmonics  extraction
   harmo_info<- generate_harmonic_matrices(nt = nrow(Y),
                              num_harmonics = num_harmonics,
@@ -204,8 +251,37 @@ MCMC.sampler.st.DGLM<- function(N.MCMC,
   burn_in2 = floor(N.MCMC/2)
   adapt_seq<- seq(from=adapt, to=N.MCMC, by=adapt)
 
-  #### MCMC sampler for different models
 
+
+  ### run a Bayesian GLM to decide about the beter inital values for covarites ceofficents and linear predictors
+
+  init_values_cov_lin.pred<- parallel::mclapply(1:no_parallel_chain, FUN = function(ii){
+    MCMC.sampler_init(model = "bayes.reg",
+                           data_lik = data_lik, nt = nt, ns = ns, p = p, q = q, Y.o = Y.o, data.log.mean = data.log.mean,
+                           data.mean = data.mean, ind_NA_Y = ind_NA_data, X.o = X.o, quad.X.o = quad.X.o,
+                           spatInt.ind = spatInt.ind, forcast.ind = forcast.ind,
+                           N.MCMC = 5000, burn_in1 = 3000, burn_in2 = 1000, adapt_seq = adapt_seq, thin = thin,
+                           adapt = adapt, tun_r = tun_r, tun_lambda = tun_lambda, print.result = print.result, traceplot = traceplot,
+                           true.values = true.values, simulation = simulation, init.seed = 123 + ii
+    )
+  }, mc.cores = no_parallel_chain)
+
+  #browser()
+
+  if(no_parallel_chain==1){
+    init_beta<- init_values_cov_lin.pred[[1]]$sumry.beta
+    init_lambda<- init_values_cov_lin.pred[[1]]$pred.lambda.mean
+  } else if(no_parallel_chain==2){
+    init_beta<- (init_values_cov_lin.pred[[1]]$sumry.beta + init_values_cov_lin.pred[[2]]$sumry.beta)/2
+    init_lambda<- (init_values_cov_lin.pred[[1]]$pred.lambda.mean + init_values_cov_lin.pred[[2]]$pred.lambda.mean)/2
+  } else if(no_parallel_chain==3){
+    init_beta<- (init_values_cov_lin.pred[[1]]$sumry.beta + init_values_cov_lin.pred[[2]]$sumry.beta + init_values_cov_lin.pred[[3]]$sumry.beta)/3
+    init_lambda<- (init_values_cov_lin.pred[[1]]$pred.lambda.mean + init_values_cov_lin.pred[[2]]$pred.lambda.mean + init_values_cov_lin.pred[[3]]$pred.lambda.mean)/3
+  } else if(no_parallel_chain==4){
+    init_beta<- (init_values_cov_lin.pred[[1]]$sumry.beta + init_values_cov_lin.pred[[2]]$sumry.beta + init_values_cov_lin.pred[[3]]$sumry.beta + init_values_cov_lin.pred[[4]]$sumry.beta)/4
+    init_lambda<- (init_values_cov_lin.pred[[1]]$pred.lambda.mean + init_values_cov_lin.pred[[2]]$pred.lambda.mean + init_values_cov_lin.pred[[3]]$pred.lambda.mean + init_values_cov_lin.pred[[4]]$pred.lambda.mean)/4
+  }
+  #### MCMC sampler for different models
 if(model=="bayes.reg"){ ## baseline model (Model with only fixed covariates
   parallel_chain<- parallel::mclapply(1:no_parallel_chain, FUN = function(ii){
     MCMC.sampler_model.reg(model = model,
@@ -215,7 +291,7 @@ if(model=="bayes.reg"){ ## baseline model (Model with only fixed covariates
       spatInt.ind = spatInt.ind, forcast.ind = forcast.ind, samples.store = samples.store,
       N.MCMC = N.MCMC, burn_in1 = burn_in1, burn_in2 = burn_in2, adapt_seq = adapt_seq, thin = thin,
       adapt = adapt, tun_r = tun_r, tun_lambda = tun_lambda, print.result = print.result, traceplot = traceplot,
-      true.values = true.values, simulation = simulation, init.seed = 123 + ii
+      true.values = true.values, simulation = simulation, init_beta, init_lambda,  init.seed = 123 + ii
     )
   }, mc.cores = no_parallel_chain)
 } else if(model == "dense"){
@@ -229,7 +305,7 @@ if(model=="bayes.reg"){ ## baseline model (Model with only fixed covariates
       spatInt.ind = spatInt.ind, forcast.ind = forcast.ind, cor.type =  cor.type, samples.store = samples.store,
       N.MCMC = N.MCMC, burn_in1 = burn_in1, burn_in2 = burn_in2, adapt_seq = adapt_seq, thin = thin, adapt = adapt,
       tun_r = tun_r, tun_kappa = tun_kappa, tun_lambda = tun_lambda, print.result = print.result, traceplot = traceplot,
-      true.values = true.values, simulation = simulation, init.seed =  123 + ii
+      true.values = true.values, simulation = simulation, init_beta, init_lambda, init.seed =  123 + ii
       )
   }, mc.cores = no_parallel_chain)
 } else if(model == "sparse"){
@@ -243,13 +319,13 @@ if(model=="bayes.reg"){ ## baseline model (Model with only fixed covariates
       g1.mat.o = g1.mat.o, g2.mat.o = g2.mat.o, spatInt.ind = spatInt.ind, forcast.ind = forcast.ind, samples.store = samples.store,
       N.MCMC = N.MCMC, burn_in1 = burn_in1, burn_in2 = burn_in2, adapt_seq = adapt_seq, thin = thin, adapt = adapt,
       tun_r = tun_r, tun_kappa = tun_kappa, tun_lambda = tun_lambda, print.result = print.result, traceplot = traceplot,
-      true.values = true.values, simulation = simulation, init.seed =  123 + ii
+      true.values = true.values, simulation = simulation, init_beta, init_lambda, init.seed =  123 + ii
       )
   }, mc.cores = no_parallel_chain)
 }
 
 
- # browser()
+ # Generating the required results
   ### assessing the performances based on the multiple chains
     if(no_parallel_chain==1){
     parallel_chain[[2]]<- parallel_chain[[3]]<- parallel_chain[[4]]<- parallel_chain[[1]]

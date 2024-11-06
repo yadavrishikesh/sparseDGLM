@@ -36,6 +36,9 @@
 #' @param true.values List of true parameter values (optional).
 #' @param simulation Logical, if `TRUE`, the function runs in simulation mode.
 #' @param init.seed Integer, seed for random number generation to ensure reproducibility.
+#' @param model
+#' @param init_beta initial values for beta set by pre-run GLM counterpart
+#' @param init_lambda initial values for linear predictors set by pre-run GLM counterpart
 #'
 #' @return A list containing MCMC samples, trace plots, and convergence diagnostics.
 #'
@@ -113,6 +116,8 @@ MCMC.sampler_model.reg<-function(model,
                                 traceplot,
                                 true.values,
                                 simulation,
+                                init_beta,
+                                init_lambda,
                                 init.seed)
 {
   tun_lambda<- matrix(rep(tun_lambda, nt * ns), nrow = nt, ncol = ns)
@@ -127,8 +132,8 @@ MCMC.sampler_model.reg<-function(model,
   cur.samples.k<- init.names$init$k
   cur.samples.beta0<- init.names$init$beta0
   cur.samples.tau2<- init.names$init$tau2
-  cur.samples.beta<- init.names$init$beta
-  cur.samples.lambda<- init.names$init$lambda_init
+  cur.samples.beta<- init_beta # init.names$init$beta
+  cur.samples.lambda<- init_lambda # init.names$init$lambda_init
 
   samples <- matrix(nrow=floor(N.MCMC/thin), ncol= length(cur.samples.r) + length(cur.samples.k) +
                       2 + q + 4, byrow=TRUE)

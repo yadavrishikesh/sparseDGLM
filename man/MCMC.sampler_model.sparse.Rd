@@ -53,6 +53,8 @@ MCMC.sampler_model.sparse(
   print.result,
   traceplot,
   true.values,
+  init_beta,
+  init_lambda,
   simulation,
   init.seed,
   ...
@@ -152,6 +154,10 @@ MCMC.sampler_model.sparse(
 \item{traceplot}{Logical, if `TRUE`, generates trace plots of MCMC samples.}
 
 \item{true.values}{List of true parameter values (optional).}
+
+\item{init_beta}{initial values for beta set by pre-run GLM counterpart}
+
+\item{init_lambda}{initial values for linear predictors set by pre-run GLM counterpart}
 
 \item{simulation}{Logical, if `TRUE`, the function runs in simulation mode.}
 
