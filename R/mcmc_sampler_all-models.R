@@ -726,32 +726,32 @@ if(model=="bayes.reg"){ ## baseline model (Model with only fixed covariates
 
   ####### Estimations of average Annual daily bike (AADB), site wise
   ### at new spatial locations
-  Y.spat.pred <- array(unlist(Y.list), dim = dim(Y.spat.pred))   # Convert the list back to an array with the original dimensions
-  est.mean.aadb.new.loc<- apply(Y.spat.pred, MARGIN = 1,c3), FUN=function(x) {x[which.min(abs(x - median(x, na.rm=TRUE)))]})
-  est.sd.aadb.new.loc<- apply(Y.spat.pred, MARGIN = c(2,3), FUN=sd, na.rm=TRUE)
-  lci.aadb.new.loc<- apply(Y.spat.pred, MARGIN = c(2,3), FUN=quantile, probs=0.025, na.rm=TRUE)
-  uci.aadb.new.loc<- apply(Y.spat.pred, MARGIN = c(2,3), FUN=quantile, probs=0.975, na.rm=TRUE)
-  aadb.new.loc<- list(
-                       median =  est.mean.aadb.new.loc,
-                       std = est.sd.aadb.new.loc,
-                       quant2.5 = lci.aadb.new.loc,
-                       quant97.5  = lci.aadb.new.loc
-  )
+  # Y.spat.pred <- array(unlist(Y.list), dim = dim(Y.spat.pred))   # Convert the list back to an array with the original dimensions
+  # est.mean.aadb.new.loc<- apply(Y.spat.pred, MARGIN = 1,c3), FUN=function(x) {x[which.min(abs(x - median(x, na.rm=TRUE)))]})
+  # est.sd.aadb.new.loc<- apply(Y.spat.pred, MARGIN = c(2,3), FUN=sd, na.rm=TRUE)
+  # lci.aadb.new.loc<- apply(Y.spat.pred, MARGIN = c(2,3), FUN=quantile, probs=0.025, na.rm=TRUE)
+  # uci.aadb.new.loc<- apply(Y.spat.pred, MARGIN = c(2,3), FUN=quantile, probs=0.975, na.rm=TRUE)
+  # aadb.new.loc<- list(
+  #                      median =  est.mean.aadb.new.loc,
+  #                      std = est.sd.aadb.new.loc,
+  #                      quant2.5 = lci.aadb.new.loc,
+  #                      quant97.5  = lci.aadb.new.loc
+  # )
 
  ### at already observed  locations
- Y.miss.imput.pred<- apply(Y.miss.imput.array, MARGIN = c(2,3), FUN=function(x) {x[which.min(abs(x - median(x)))]})
-
-  est.mean.within.sample[na.ind]<- apply(Y.miss.imput.pred, MARGIN = c(2), FUN=function(x) {x[which.min(abs(x - median(x)))]})
-  est.sd.within.sample[na.ind]<- apply(Y.miss.imput.pred, MARGIN = c(2), FUN=sd)
-  lci.within.sample[na.ind]<- apply(Y.miss.imput.pred, MARGIN = c(2), FUN=quantile, probs=0.025)
-  uci.within.sample[na.ind]<- apply(Y.miss.imput.pred, MARGIN = c(2), FUN=quantile, probs=0.975)
-
-  aadb.obsd.loc<- list(
-                                            median =  est.mean.within.sample,
-                                            std = est.sd.within.sample,
-                                            quant2.5 = lci.within.sample,
-                                            quant97.5 = uci.within.sample
-  )
+ # Y.miss.imput.pred<- apply(Y.miss.imput.array, MARGIN = c(2,3), FUN=function(x) {x[which.min(abs(x - median(x)))]})
+ #
+ #  est.mean.within.sample[na.ind]<- apply(Y.miss.imput.pred, MARGIN = c(2), FUN=function(x) {x[which.min(abs(x - median(x)))]})
+ #  est.sd.within.sample[na.ind]<- apply(Y.miss.imput.pred, MARGIN = c(2), FUN=sd)
+ #  lci.within.sample[na.ind]<- apply(Y.miss.imput.pred, MARGIN = c(2), FUN=quantile, probs=0.025)
+ #  uci.within.sample[na.ind]<- apply(Y.miss.imput.pred, MARGIN = c(2), FUN=quantile, probs=0.975)
+ #
+ #  aadb.obsd.loc<- list(
+ #                                            median =  est.mean.within.sample,
+ #                                            std = est.sd.within.sample,
+ #                                            quant2.5 = lci.within.sample,
+ #                                            quant97.5 = uci.within.sample
+ #  )
 
 return(
   list("summery.hyper" = list(sumry.hyper = sumry.hyper, sumry.var.state= sumry.var.state),
