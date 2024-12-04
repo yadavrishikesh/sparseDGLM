@@ -735,7 +735,7 @@ if(model=="bayes.reg"){ ## baseline model (Model with only fixed covariates
                        mean =  est.aadb.new.loc,
                        std = sd.aadb.new.loc,
                        quant2.5 = lci.aadb.new.loc,
-                       quant97.5  = lci.aadb.new.loc
+                       quant97.5  = uci.aadb.new.loc
   )
 
  ### at already observed  locations
@@ -779,9 +779,10 @@ return(
        "ns" = ns,
        "model" = model,
        "data_lik" = data_lik,
-       "cor.type" = cor.type
+       "cor.type" = cor.type,
+       "coords.obsd.loc" = loc.o,
+       "coords.pred.loc" = loc.p
        ))
-
 }
 
 
