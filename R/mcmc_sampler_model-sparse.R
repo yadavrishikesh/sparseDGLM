@@ -169,7 +169,7 @@ MCMC.sampler_model.sparse <- function(model,
                                      init.seed,
                                      ...)
 {
-
+  browser()
   nb<- ncol(A.proj.o)
   A.proj.SPDE<- as.matrix(A.proj.o)
   tA.proj<- as.matrix(t(A.proj.SPDE))
