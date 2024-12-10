@@ -120,6 +120,7 @@ MCMC.sampler.st.DGLM<- function(Y,
                                 simulation = FALSE,
                                 no_parallel_chain = 1){
 
+  #browser()
  ## some fixed MCMC hyperparameters
   adapt = 100
   tun_kappa = 1e-4
@@ -213,7 +214,7 @@ MCMC.sampler.st.DGLM<- function(Y,
   dist.mat.all <- dist.mat.all / max(dist.mat.all)
 
 
-  if(model =="sparse" & !simulation & is.null(sparse.info.sim) ){
+  if(model =="sparse" & is.null(sparse.info.sim)){
     # INLA.mesh <- INLA::inla.mesh.2d(loc = as.matrix(loc.o),
     #                                 max.edge = max.edge,
     #                                 cutoff = cutoff,
@@ -233,8 +234,8 @@ MCMC.sampler.st.DGLM<- function(Y,
                                     offset = offset
     )
     A.proj.all.loc<- as.matrix(INLA::inla.spde.make.A(mesh = INLA.mesh, loc = as.matrix(loc)))
-    A.proj.o<- as.matrix(A.proj.all.loc[spatInt.ind, ])
-    A.proj.p<- as.matrix(A.proj.all.loc[-spatInt.ind, ])
+    A.proj.o<- as.matrix(A.proj.all.loc[-spatInt.ind, ])
+    A.proj.p<- as.matrix(A.proj.all.loc[spatInt.ind, ])
 
     fem.mesh <- INLA::inla.mesh.fem(INLA.mesh, order = 2)
     c.mat.o<-  fem.mesh$c0
@@ -280,7 +281,7 @@ MCMC.sampler.st.DGLM<- function(Y,
     )
   }, mc.cores = no_parallel_chain)
 
-  browser()
+ # browser()
 
   if(no_parallel_chain==1){
     init_beta<- init_values_cov_lin.pred[[1]]$sumry.beta
