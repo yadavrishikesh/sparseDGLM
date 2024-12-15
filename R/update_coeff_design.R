@@ -3,7 +3,7 @@
 #' This function updates the space-time beta coefficients in the model using posterior mean and covariance based on the input parameters.
 #'
 #' @param lambda A reshaped matrix of dimension (nt * ns) x 1, originally of dimension nt x ns.
-#' @param m A vector of length (nt * ns), originally a matrix of dimension nt x ns.
+#' @param m.lambda A vector of length (nt * ns), originally a matrix of dimension nt x ns.
 #' @param X A reshaped matrix of covariates of dimension (nt * ns) x p, originally an array of dimension nt x ns x p.
 #' @param quad.X A matrix representing X'X (quadratic form of X).
 #' @param tau2 A scalar representing the variance of the nugget.
@@ -14,19 +14,20 @@
 #' @examples
 #' \dontrun{
 #' lambda <- matrix(rnorm(100), nrow = 100)
-#' m <- matrix(rnorm(100), nrow = 100)
+#' m.lambda <- matrix(rnorm(100), nrow = 100)
 #' X <- matrix(rnorm(500), nrow = 100, ncol = 5)
 #' quad.X <- t(X) %*% X
 #' tau2 <- 0.1
 #' beta <- update_space_time_beta(lambda, m, X, quad.X, tau2)
 #' }
-update_space_time_beta <- function(lambda, m, X, quad.X, tau2) {
+update_space_time_beta <- function(lambda, m.lambda, X, quad.X, tau2) {
+#  browser()
   p <- ncol(X)
   prior_cov <- diag(10, p)
   prior_prec <- solve(prior_cov)
   post_prec <- (1 / tau2) * quad.X + prior_prec
   post_cov <- solve(post_prec)
-  post_mean <- post_cov %*% t(X) %*% c(lambda - m) / tau2
+  post_mean <- post_cov %*% t(X) %*% c(lambda - m.lambda) / tau2
   return(post_mean)
 }
 

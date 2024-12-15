@@ -169,11 +169,14 @@ MCMC.sampler_model.sparse <- function(model,
                                      init.seed,
                                      ...)
 {
-  #browser()
   nb<- ncol(A.proj.o)
-  A.proj.SPDE<- as.matrix(A.proj.o)
-  tA.proj<- as.matrix(t(A.proj.SPDE))
-  t.A.A<- t(A.proj.SPDE) %*% A.proj.SPDE
+  # A.proj.SPDE<- as.matrix(A.proj.o)
+  # tA.proj<- as.matrix(t(A.proj.SPDE))
+  # t.A.A<- t(A.proj.SPDE) %*% A.proj.SPDE
+
+  A.proj.SPDE<- A.proj.o
+  tA.proj<- Matrix::t(A.proj.SPDE)
+  t.A.A<- Matrix::t(A.proj.SPDE) %*% A.proj.SPDE
 
   tun_lambda<- matrix(rep(tun_lambda, nt * ns), nrow = nt, ncol = ns)
   if(data_lik=="NegB"){tun_r= tun_r} else {tun_r=NULL}
@@ -238,6 +241,7 @@ MCMC.sampler_model.sparse <- function(model,
   log.det.cor.mat = cor.mat.inv.and.log.det$cormat.logdet
 
   #browser()
+  cur.samples.mu.st<- as.matrix(cur.samples.R %*% tA.proj)
 
   j<-1
   l<-1
@@ -335,7 +339,7 @@ MCMC.sampler_model.sparse <- function(model,
     cur.samples.tau2<- update_var(ns=ns,
                                   nt=nt,
                                   param.hyperprior=c(0.25, 0.25),
-                                  qud_sum = sum((cur.samples.lambda - cur.samples.R %*% tA.proj -
+                                  qud_sum = sum((cur.samples.lambda - cur.samples.mu.st -
                                                    comp.cov - Ft.mean)^2)
     )
 
@@ -359,8 +363,9 @@ MCMC.sampler_model.sparse <- function(model,
 
    # cur.samples.R<- sim_M0$R.st[-(forcast.ind),]
     ### update betas
+   # browser()
     cur.samples.beta<- update_space_time_beta(lambda = cur.samples.lambda,
-                                              m = cur.samples.R %*% tA.proj + Ft.mean,
+                                              m.lambda = cur.samples.mu.st + Ft.mean,
                                               X = X.o,
                                               quad.X = quad.X.o,
                                               tau2 = cur.samples.tau2
@@ -380,7 +385,7 @@ MCMC.sampler_model.sparse <- function(model,
     ########## update theta using FFBS #########
 
     cur.samples.theta<- ffbs_thetas(p=p,
-                                        mus = cur.samples.lambda - cur.samples.R %*% tA.proj - comp.cov,
+                                        mus = cur.samples.lambda - cur.samples.mu.st - comp.cov,
                                         G=G,
                                         Sigma= diag(cur.samples.Wt, p),
                                         H= F.mat.o,
@@ -396,7 +401,7 @@ MCMC.sampler_model.sparse <- function(model,
                                                  nt=nt,
                                                  Y = Y.o,
                                                  cur.lambda = cur.samples.lambda,
-                                                 mean.lambda = cur.samples.R %*% tA.proj +  Ft.mean + comp.cov,
+                                                 mean.lambda = cur.samples.mu.st +  Ft.mean + comp.cov,
                                                  tau2 = cur.samples.tau2,
                                                  r=  cur.samples.r,
                                                  k = cur.samples.k,
@@ -404,9 +409,10 @@ MCMC.sampler_model.sparse <- function(model,
                                                  tun_lambda = tun_lambda)
 
     rate.lambda<- ifelse(cur.samples.lambda.all$ind.acc, rate.lambda+1, rate.lambda)
-    tun_lambda<- adpative_function(index_MCMC_iter=i, sigma2_adapt=tun_lambda, target_accept=0.60,
-                                   rate_adapt=rate.lambda, burn_in1=burn_in1, burn_in2=burn_in2,
-                                   adapt=adapt, adpat_param=1, adapt_seq=adapt_seq, lower.acc=0.50, upper.acc=0.70)
+    # tun_lambda<- adpative_function(index_MCMC_iter=i, sigma2_adapt=tun_lambda, target_accept=0.60,
+    #                                rate_adapt=rate.lambda, burn_in1=burn_in1, burn_in2=burn_in2,
+    #                                adapt=adapt, adpat_param=1, adapt_seq=adapt_seq, lower.acc=0.50, upper.acc=0.70)
+    tun_lambda<- matrix(1, nrow = nt, ncol = ns)
 
     cur.samples.lambda<- cur.samples.lambda.all$cur_lambda
 
@@ -423,8 +429,8 @@ MCMC.sampler_model.sparse <- function(model,
       sum.post.R.save<- sum.post.R.save + cur.samples.R
       sum.post.R2.save<- sum.post.R2.save +  cur.samples.R^2
 
-      sum.post.mu.st.save<- sum.post.mu.st.save + cur.samples.R %*% tA.proj
-      sum.post.mu.st2.save<- sum.post.mu.st2.save + (cur.samples.R %*% tA.proj)^2
+      sum.post.mu.st.save<- sum.post.mu.st.save + cur.samples.mu.st
+      sum.post.mu.st2.save<- sum.post.mu.st2.save + cur.samples.mu.st^2
 
     }
     #### just in case posteriors means is inflating the results, save the samples to asses the within sample assessments and calculate medians

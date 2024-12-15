@@ -389,10 +389,11 @@ MCMC.sampler_model.dense <- function(model,
                                                  tun_lambda = tun_lambda)
 
     rate.lambda<- ifelse(cur.samples.lambda.all$ind.acc, rate.lambda+1, rate.lambda)
-    tun_lambda<- adpative_function(index_MCMC_iter=i, sigma2_adapt=tun_lambda, target_accept=0.60,
-                                   rate_adapt=rate.lambda, burn_in1=burn_in1, burn_in2=burn_in2,
-                                   adapt=adapt, adpat_param=1, adapt_seq=adapt_seq, lower.acc=0.50, upper.acc=0.70)
+    # tun_lambda<- adpative_function(index_MCMC_iter=i, sigma2_adapt=tun_lambda, target_accept=0.60,
+    #                                rate_adapt=rate.lambda, burn_in1=burn_in1, burn_in2=burn_in2,
+    #                                adapt=adapt, adpat_param=1, adapt_seq=adapt_seq, lower.acc=0.50, upper.acc=0.70)
 
+    tun_lambda<- matrix(1, nrow = nt, ncol = ns)
     cur.samples.lambda<- cur.samples.lambda.all$cur_lambda
 
    # cur.samples.lambda<- sim_M0$lambda[1:(nrow(Y.all) - length(forcast.ind)), -(spatInt.ind)]

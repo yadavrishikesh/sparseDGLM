@@ -4,12 +4,12 @@
 \alias{update_space_time_beta}
 \title{Update Fixed Effects Coefficients With Space-Time Covariates}
 \usage{
-update_space_time_beta(lambda, m, X, quad.X, tau2)
+update_space_time_beta(lambda, m.lambda, X, quad.X, tau2)
 }
 \arguments{
 \item{lambda}{A reshaped matrix of dimension (nt * ns) x 1, originally of dimension nt x ns.}
 
-\item{m}{A vector of length (nt * ns), originally a matrix of dimension nt x ns.}
+\item{m.lambda}{A vector of length (nt * ns), originally a matrix of dimension nt x ns.}
 
 \item{X}{A reshaped matrix of covariates of dimension (nt * ns) x p, originally an array of dimension nt x ns x p.}
 
@@ -26,7 +26,7 @@ This function updates the space-time beta coefficients in the model using poster
 \examples{
 \dontrun{
 lambda <- matrix(rnorm(100), nrow = 100)
-m <- matrix(rnorm(100), nrow = 100)
+m.lambda <- matrix(rnorm(100), nrow = 100)
 X <- matrix(rnorm(500), nrow = 100, ncol = 5)
 quad.X <- t(X) \%*\% X
 tau2 <- 0.1

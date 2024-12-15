@@ -163,6 +163,7 @@ update_intercept.sparse<- function(nt,
                                       sigma2,
                                       tau2
 ){
+  #browser()
   A_inv.nt<- tau2^(-1) * t.A.A + Q/sigma2
   chol.latent.cov.inv.nt<- spam::chol(A_inv.nt)
   tchol.latent.cov.inv.nt<-   Matrix::t(chol.latent.cov.inv.nt)

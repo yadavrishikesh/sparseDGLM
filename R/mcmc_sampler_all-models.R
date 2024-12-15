@@ -220,8 +220,8 @@ MCMC.sampler.st.DGLM<- function(Y,
                                     cutoff = cutoff,
                                     offset = offset
                                     )
-    A.proj.o<- as.matrix(INLA::inla.spde.make.A(mesh = INLA.mesh, loc = as.matrix(loc.o)))
-    A.proj.p<-as.matrix(INLA::inla.spde.make.A(mesh = INLA.mesh, loc = as.matrix(loc.p)))
+    A.proj.o<- INLA::inla.spde.make.A(mesh = INLA.mesh, loc = as.matrix(loc.o)) # as.matrix(INLA::inla.spde.make.A(mesh = INLA.mesh, loc = as.matrix(loc.o)))
+    A.proj.p<- as.matrix(INLA::inla.spde.make.A(mesh = INLA.mesh, loc = as.matrix(loc.p)))
     fem.mesh <- INLA::inla.mesh.fem(INLA.mesh, order = 2)
     c.mat.o<-  fem.mesh$c0
     g1.mat.o<- fem.mesh$g1
@@ -275,7 +275,7 @@ MCMC.sampler.st.DGLM<- function(Y,
                            data_lik = data_lik, nt = nt, ns = ns, p = p, q = q, Y.o = Y.o, data.log.mean = data.log.mean,
                            data.mean = data.mean, ind_NA_Y = ind_NA_data, X.o = X.o, quad.X.o = quad.X.o,
                            spatInt.ind = spatInt.ind, forcast.ind = forcast.ind,
-                           N.MCMC = 2000, burn_in1 = 500, burn_in2 = 1000, adapt_seq = adapt_seq, thin = thin,
+                           N.MCMC = 5000, burn_in1 = 3000, burn_in2 = 1000, adapt_seq = adapt_seq, thin = thin,
                            adapt = adapt, tun_r = tun_r, tun_lambda = tun_lambda, print.result = print.result, traceplot = traceplot,
                            true.values = true.values, simulation = simulation, init.seed = 123 + ii
     )
