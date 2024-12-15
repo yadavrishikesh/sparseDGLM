@@ -215,32 +215,32 @@ MCMC.sampler.st.DGLM<- function(Y,
 
 
   if(model =="sparse" & is.null(sparse.info.sim)){
-    # INLA.mesh <- INLA::inla.mesh.2d(loc = as.matrix(loc.o),
-    #                                 max.edge = max.edge,
-    #                                 cutoff = cutoff,
-    #                                 offset = offset
-    #                                 )
-    # A.proj.o<- as.matrix(INLA::inla.spde.make.A(mesh = INLA.mesh, loc = as.matrix(loc.o)))
-    # A.proj.p<-as.matrix(INLA::inla.spde.make.A(mesh = INLA.mesh, loc = as.matrix(loc.p)))
-    # fem.mesh <- INLA::inla.mesh.fem(INLA.mesh, order = 2)
-    # c.mat.o<-  fem.mesh$c0
-    # g1.mat.o<- fem.mesh$g1
-    # g2.mat.o<- fem.mesh$g2
-
-    ### a different ways of defining the mesh nodes
-    INLA.mesh <- INLA::inla.mesh.2d(loc = as.matrix(loc),
+    INLA.mesh <- INLA::inla.mesh.2d(loc = as.matrix(loc.o),
                                     max.edge = max.edge,
                                     cutoff = cutoff,
                                     offset = offset
-    )
-    A.proj.all.loc<- as.matrix(INLA::inla.spde.make.A(mesh = INLA.mesh, loc = as.matrix(loc)))
-    A.proj.o<- as.matrix(A.proj.all.loc[-spatInt.ind, ])
-    A.proj.p<- as.matrix(A.proj.all.loc[spatInt.ind, ])
-
+                                    )
+    A.proj.o<- as.matrix(INLA::inla.spde.make.A(mesh = INLA.mesh, loc = as.matrix(loc.o)))
+    A.proj.p<-as.matrix(INLA::inla.spde.make.A(mesh = INLA.mesh, loc = as.matrix(loc.p)))
     fem.mesh <- INLA::inla.mesh.fem(INLA.mesh, order = 2)
     c.mat.o<-  fem.mesh$c0
     g1.mat.o<- fem.mesh$g1
     g2.mat.o<- fem.mesh$g2
+
+    ### a different ways of defining the mesh nodes
+    # INLA.mesh <- INLA::inla.mesh.2d(loc = as.matrix(loc),
+    #                                 max.edge = max.edge,
+    #                                 cutoff = cutoff,
+    #                                 offset = offset
+    # )
+    # A.proj.all.loc<- as.matrix(INLA::inla.spde.make.A(mesh = INLA.mesh, loc = as.matrix(loc)))
+    # A.proj.o<- as.matrix(A.proj.all.loc[-spatInt.ind, ])
+    # A.proj.p<- as.matrix(A.proj.all.loc[spatInt.ind, ])
+    #
+    # fem.mesh <- INLA::inla.mesh.fem(INLA.mesh, order = 2)
+    # c.mat.o<-  fem.mesh$c0
+    # g1.mat.o<- fem.mesh$g1
+    # g2.mat.o<- fem.mesh$g2
 
   }else if(model =="sparse" & simulation & !is.null(sparse.info.sim)) {
 
