@@ -173,14 +173,12 @@ MCMC.sampler.st.DGLM<- function(Y,
 
   Ft.frcast<- Ft[-(1:nt), ]
 
+  #browser()
   #### components related to space-time intercept
   m0.mu<- ifelse(is.na(Y[1,]),
                  apply(log(1+Y), MARGIN = 2, FUN = function(x) mean(x, na.rm=TRUE)),
                  log(1+Y[1,]))
   C0.mu<- 1
-
-  m0.R = mean(log(1+Y.o), na.rm=TRUE)
-  C0.R = 5
 
   ### spatial location related components
   loc.o<- loc[-spatInt.ind, ]
@@ -227,6 +225,16 @@ MCMC.sampler.st.DGLM<- function(Y,
     g1.mat.o<- fem.mesh$g1
     g2.mat.o<- fem.mesh$g2
 
+    # AtA <- Matrix::t(A.proj.o) %*% A.proj.o
+    # reg_AtA <- AtA + Diagonal(nrow(AtA), 1e-3)
+    # m0.R <- as.matrix(solve(reg_AtA, (t(A.proj.o) %*% m0.mu)))  # Solve the system
+
+    AtA <- Matrix::t(A.proj.o) %*% A.proj.o
+    reg_AtA <- AtA + Diagonal(nrow(AtA), 0.0001)
+    At_mu <- as.vector(Matrix::t(A.proj.o) %*% m0.mu[1:ns])
+    m0.R<- solve(reg_AtA, At_mu)
+    C0.R = 1
+
     ### a different ways of defining the mesh nodes
     # INLA.mesh <- INLA::inla.mesh.2d(loc = as.matrix(loc),
     #                                 max.edge = max.edge,
@@ -252,6 +260,12 @@ MCMC.sampler.st.DGLM<- function(Y,
     g1.mat.o<- sparse.info.sim$g1.mat
     g2.mat.o<- sparse.info.sim$g2.mat
 
+    AtA <- Matrix::t(A.proj.o) %*% A.proj.o
+    reg_AtA <- AtA + Diagonal(nrow(AtA), 0.0001)
+    At_mu <- as.vector(Matrix::t(A.proj.o) %*% m0.mu[1:ns])
+    m0.R<- solve(reg_AtA, At_mu)
+    C0.R = 1
+
   } else{
     INLA.mesh<- NULL
     c.mat.o<- NULL
@@ -265,9 +279,6 @@ MCMC.sampler.st.DGLM<- function(Y,
   burn_in1 = floor(N.MCMC/4)
   burn_in2 = floor(N.MCMC/2)
   adapt_seq<- seq(from=adapt, to=N.MCMC, by=adapt)
-
-
-
   ### run a Bayesian GLM to decide about the beter inital values for covarites ceofficents and linear predictors
 
   init_values_cov_lin.pred<- parallel::mclapply(1:no_parallel_chain, FUN = function(ii){
@@ -796,7 +807,8 @@ return(
        "data_lik" = data_lik,
        "cor.type" = cor.type,
        "coords.obsd.loc" = loc.o,
-       "coords.pred.loc" = loc.p
+       "coords.pred.loc" = loc.p,
+       "max.spat.dist" = max.dist
        ))
 }
 

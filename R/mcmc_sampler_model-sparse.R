@@ -360,6 +360,7 @@ MCMC.sampler_model.sparse <- function(model,
 
     end_time_Rs<- Sys.time()
     run_time_Rs<- run_time_Rs + (end_time_Rs - start_time_Rs)
+    cur.samples.mu.st<- as.matrix(cur.samples.R %*% tA.proj)
 
    # cur.samples.R<- sim_M0$R.st[-(forcast.ind),]
     ### update betas
@@ -374,6 +375,7 @@ MCMC.sampler_model.sparse <- function(model,
 
 
     #### update Wt ############
+   # browser()
     cur.samples.theta0<- m0.theta
     cur.samples.Wt<- update.Wt(nt = nt,
                                p =p,
