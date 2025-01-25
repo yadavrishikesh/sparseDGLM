@@ -1,0 +1,206 @@
+---
+title: "Vignette-sparseDGLM"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette-sparseDGLM}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(sparseDGLM)
+```
+
+# Introduction
+
+This vignette demonstrates the use of the `sparseDGLM` package for sparse spatiotemporal modeling, focusing on dynamic generalized linear models (DGLMs) for bike count data. The package supports dense and sparse covariance structures and offers MCMC-based inference and prediction capabilities.
+
+# Prerequisites
+
+Load the necessary libraries:
+
+```{r load-libraries}
+library(Matrix)
+library(spam)
+library(dplyr)
+library(INLA)
+library(mvtnorm)
+library(sparseDGLM)
+library(BKTR)
+```
+
+Ensure the working directory is set correctly:
+
+```{r set-working-directory}
+setwd(this.path::here())
+```
+
+# Simulating Data
+
+### Step 1: Generate Spatial Locations
+
+Simulate spatial locations for 1000 sites:
+
+```{r simulate-locations}
+ns <- 100
+set.seed(1)
+loc <- data.frame(long = runif(ns), lat = runif(ns))
+plot(loc, main = "Spatial Locations")
+```
+
+### Step 2: Create Fixed Effects Covariates
+
+Generate three fixed-effects covariates:
+
+```{r fixed-effects-covariates}
+nt <- 100
+X <- array(NA, dim = c(nt, ns, 3))
+set.seed(1)
+X[,,1] <- matrix(rnorm(nt * ns, sd = sqrt(2)), nrow = nt, ncol = ns)
+X[,,2] <- matrix(rnorm(nt * ns, sd = sqrt(1)), nrow = nt, ncol = ns)
+X[,,3] <- matrix(rnorm(nt * ns, sd = sqrt(5)), nrow = nt, ncol = ns)
+```
+
+### Step 3: Generate Temporal Components
+
+Generate harmonic matrices for temporal dynamics:
+
+```{r generate-harmonics}
+seas.period <- 7
+num_harmonics <- 1
+details.seas <- sparseDGLM::generate_harmonic_matrices(nt = nt, num_harmonics = num_harmonics, period = seas.period)
+Ft <- details.seas$Ft.all
+G <- details.seas$G.all
+p <- ncol(Ft)
+Wt <- diag(c(0.01, 0.02))
+```
+
+### Step 4: Simulate Data
+
+Define model parameters and simulate synthetic data:
+
+```{r simulate-data}
+hyper <- list(r = 100, k = 0.5, kappa = 0.35, sigma2 = 0.1, tau2 = 0.05, Wt = Wt)
+beta0 <- 1
+set.seed(1)
+beta <- runif(dim(X)[3])
+model <- "dense"
+data_lik <- "Poisson"
+cor.type <- "Matern1"
+sim_data <- sparseDGLM::sim_synthetic_data(
+  nt = nt,
+  model = model,
+  data_lik = data_lik,
+  loc = loc,
+  hyper = hyper,
+  beta0 = beta0,
+  beta = beta,
+  Wt = Wt,
+  X = X,
+  Ft = Ft,
+  G = G,
+  cor.type = cor.type,
+  theta0 = rep(0, p),
+  mu0 = 6,
+  C0 = diag(ns),
+  R0 = 0
+)
+```
+
+Examine the simulated dataset:
+
+```{r examine-data}
+mean(sim_data$y == 0)
+sum(sim_data$y > 1e5)
+mean(sim_data$y > 1e5)
+```
+
+# Adding Missing Values
+
+### Step 1: Introduce Missing Values
+
+Randomly introduce missing values in the dataset:
+
+```{r introduce-missing-values}
+miss.artfical.na <- sample(1:ns, size = 10, replace = TRUE)
+spatInt.ind <- sample(setdiff(1:ns, miss.artfical.na), size = 10, replace = TRUE)
+Y <- sim_data$y
+
+# Function to generate consecutive missing indices
+generate_consecutive_indices <- function(total_days, num_missing) {
+  missing_indices <- numeric(0)
+  while (length(missing_indices) < num_missing) {
+    block_size <- sample(1:min(30, num_missing - length(missing_indices)), 1)
+    start <- sample(setdiff(1:total_days, missing_indices), 1)
+    block <- start:(start + block_size - 1)
+    block <- block[block <= total_days]
+    missing_indices <- unique(c(missing_indices, block))
+  }
+  return(sort(missing_indices[1:num_missing]))
+}
+
+# Apply missing values
+missing_range <- c(50, 75)
+missing_indices <- list()
+set.seed(123)
+for (site in seq_along(miss.artfical.na)) {
+  missing_percentage <- sample(seq(missing_range[1], missing_range[2], by = 1), 1)
+  num_missing <- round((missing_percentage / 100) * nt)
+  missing_indices[[site]] <- generate_consecutive_indices(nt, num_missing)
+  Y[missing_indices[[site]], miss.artfical.na[site]] <- NA
+}
+```
+
+# MCMC Inference and Predictions
+
+### Step 1: Define Mesh Hyperparameters
+
+```{r mesh-hyperparameters}
+mesh.hyper.comb <- list(
+  list(max.edge = c(2, 2), cutoff = 0.1, offset = c(0.05, 0.2)),
+  list(max.edge = c(2, 2), cutoff = 0.06, offset = c(0.05, 0.2)),
+  list(max.edge = c(2, 2), cutoff = 0.04, offset = c(0.05, 0.2)),
+  list(max.edge = c(2, 2), cutoff = 0.03, offset = c(0.05, 0.2))
+)
+```
+
+### Step 2: Run MCMC Sampler
+
+Run the MCMC sampler for inference:
+
+```{r mcmc-sampler}
+start_time <- Sys.time()
+mcmc.output <- sparseDGLM::MCMC.sampler.st.DGLM(
+  Y = Y,
+  X = X,
+  loc = loc,
+  num_harmonics = num_harmonics,
+  seas.period = seas.period,
+  model = "sparse",
+  data_lik = data_lik,
+  cor.type = cor.type,
+  spatInt.ind = spatInt.ind,
+  forcast.ind = 1:7,
+  N.MCMC = 1000,
+  samples.store = 200,
+  mesh.hyper = mesh.hyper.comb[[4]],
+  print.result = FALSE,
+  traceplot = FALSE,
+  simulation = TRUE,
+  no_parallel_chain = 1
+)
+end_time <- Sys.time()
+run_time <- end_time - start_time
+run_time
+```
+
+# Conclusion
+
+This vignette showcased the steps for simulating data, introducing missing values, and performing MCMC-based inference using the `sparseDGLM` package. For more advanced use cases, refer to the package documentation.

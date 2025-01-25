@@ -48,7 +48,7 @@ init_fun <- function(p, q, ns, nt, nb, Y, model, data_lik, delta, seed) {
   for (i in 1:nt) {
     Y.init[i, ][na.ind[i, ]] <-   mean.temp[i]
   }
-  set.seed(seed)
+  #set.seed(seed)
   if (model == "bayes.reg") {
     init <- list(
       "r" = if(data_lik=="NegB") {runif(1,0,1000)} else{NULL},
