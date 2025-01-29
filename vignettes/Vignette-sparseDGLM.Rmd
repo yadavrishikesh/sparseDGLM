@@ -14,31 +14,21 @@ knitr::opts_chunk$set(
 )
 ```
 
-```{r setup}
-library(sparseDGLM)
-```
-
 # Introduction
 
-This vignette demonstrates the use of the `sparseDGLM` package for sparse spatiotemporal modeling, focusing on dynamic generalized linear models (DGLMs) for bike count data. The package supports dense and sparse covariance structures and offers MCMC-based inference and prediction capabilities.
-
-# Prerequisites
+This vignette demonstrates the use of the `sparseDGLM` package for spatiotemporal dynamic generalized linear models (DGLMs) for bike count data. The package supports Gaussian processes with both dense covariance and sparse precision matrices and offers MCMC-based inference and perform prediction, including, spatial interpolation, future forecasting and spatiotemporal predictions. 
 
 Load the necessary libraries:
 
-```{r load-libraries}
-library(Matrix)
+```{r load-libraries, warning=FALSE, message=FALSE}
+library(Matrix) 
+library(ggplot2)
+library(gridExtra)
 library(spam)
 library(dplyr)
 library(INLA)
 library(mvtnorm)
-library(sparseDGLM)
-library(BKTR)
-```
-
-Ensure the working directory is set correctly:
-
-```{r set-working-directory}
+library(sparseDGLM) 
 setwd(this.path::here())
 ```
 
@@ -46,21 +36,22 @@ setwd(this.path::here())
 
 ### Step 1: Generate Spatial Locations
 
-Simulate spatial locations for 1000 sites:
+Simulate spatial locations for 100 sites:
 
-```{r simulate-locations}
+```{r simulate-locations, fig.width=8, fig.height=6}
+nt <- 200
 ns <- 100
 set.seed(1)
-loc <- data.frame(long = runif(ns), lat = runif(ns))
-plot(loc, main = "Spatial Locations")
+loc <- data.frame(Long = runif(ns), Lat = runif(ns)) 
+ggplot(loc, aes(x=Long, y =Lat)) +
+  geom_point() +
+  ggtitle("Spatial Locations") +
+  theme_minimal()
 ```
 
 ### Step 2: Create Fixed Effects Covariates
 
-Generate three fixed-effects covariates:
-
 ```{r fixed-effects-covariates}
-nt <- 100
 X <- array(NA, dim = c(nt, ns, 3))
 set.seed(1)
 X[,,1] <- matrix(rnorm(nt * ns, sd = sqrt(2)), nrow = nt, ncol = ns)
@@ -87,7 +78,7 @@ Wt <- diag(c(0.01, 0.02))
 Define model parameters and simulate synthetic data:
 
 ```{r simulate-data}
-hyper <- list(r = 100, k = 0.5, kappa = 0.35, sigma2 = 0.1, tau2 = 0.05, Wt = Wt)
+hyper <- list(r = 100, k = 0.5, kappa = 0.35, sigma2 = 0.1, tau2 = 0.05, Wt = Wt) ## model hyperparameters 
 beta0 <- 1
 set.seed(1)
 beta <- runif(dim(X)[3])
@@ -114,25 +105,31 @@ sim_data <- sparseDGLM::sim_synthetic_data(
 )
 ```
 
-Examine the simulated dataset:
+### Examine the simulated dataset:
 
-```{r examine-data}
-mean(sim_data$y == 0)
-sum(sim_data$y > 1e5)
-mean(sim_data$y > 1e5)
+```{r examine-data, fig.width=8, fig.height=8}
+par(mfrow=c(2,2))
+hist(log(1+sim_data$y), xlab = expression(log(1+Y)), 
+     main="Histograms of log-transformed data")
+plot(log(1+sim_data$y[,1]), type ="l", xlab="Time", ylab = expression(log(1+Y[t](1))),
+     main="Time series of log-transformed data at sites 1")
+plot(log(1+sim_data$y[,2]), type ="l", xlab="Time", ylab = expression(log(1+Y[t](1))), 
+     main="Time series of log-transformed data at sites 2")
+plot(log(1+sim_data$y[,3       ]), type ="l", xlab="Time", ylab = expression(log(1+Y[t](1))), 
+     main="Time series of log-transformed data at sites 3")
 ```
 
-# Adding Missing Values
-
-### Step 1: Introduce Missing Values
-
-Randomly introduce missing values in the dataset:
+# Creating Artficially Missing Values to Asses the Prediction Performances 
 
 ```{r introduce-missing-values}
-miss.artfical.na <- sample(1:ns, size = 10, replace = TRUE)
+## randomly select the sites where we will remove data partially  
+set.seed(1)
+miss.artfical.na <- sample(1:ns, size = 10, replace = TRUE) 
+## randomly select the sites where we will completely remove the data sets to asses spatial interpolations  
+set.seed(1)
 spatInt.ind <- sample(setdiff(1:ns, miss.artfical.na), size = 10, replace = TRUE)
-Y <- sim_data$y
 
+Y <- sim_data$y
 # Function to generate consecutive missing indices
 generate_consecutive_indices <- function(total_days, num_missing) {
   missing_indices <- numeric(0)
@@ -146,8 +143,7 @@ generate_consecutive_indices <- function(total_days, num_missing) {
   return(sort(missing_indices[1:num_missing]))
 }
 
-# Apply missing values
-missing_range <- c(50, 75)
+missing_range <- c(50, 75) ## range of missing values in each sites 
 missing_indices <- list()
 set.seed(123)
 for (site in seq_along(miss.artfical.na)) {
@@ -162,18 +158,71 @@ for (site in seq_along(miss.artfical.na)) {
 
 ### Step 1: Define Mesh Hyperparameters
 
-```{r mesh-hyperparameters}
+```{r mesh-hyperparameters, fig.width=5, fig.height=5}
+## hyper-parameter used for four different combinations of mesh nodes construction
 mesh.hyper.comb <- list(
   list(max.edge = c(2, 2), cutoff = 0.1, offset = c(0.05, 0.2)),
   list(max.edge = c(2, 2), cutoff = 0.06, offset = c(0.05, 0.2)),
   list(max.edge = c(2, 2), cutoff = 0.04, offset = c(0.05, 0.2)),
   list(max.edge = c(2, 2), cutoff = 0.03, offset = c(0.05, 0.2))
 )
+
+model_no<- 4
+mesh.hyper<- mesh.hyper.comb[[model_no]]
+INLA.mesh <- INLA::inla.mesh.2d(loc = as.matrix(loc),
+                                max.edge = mesh.hyper$max.edge,
+                                cutoff = mesh.hyper$cutoff,
+                                offset = mesh.hyper$offset
+)
+
+A.proj<- inla.spde.make.A(mesh=INLA.mesh, loc = as.matrix(loc))
+dim(A.proj)[2]
+par(mfrow=c(1,1))
+plot(INLA.mesh)
+dim(INLA.mesh$n)
+points(loc, col=2, cex=1, pch =16)
+points(loc[spatInt.ind,], col=3, cex=1, pch =16)
+points(loc[miss.artfical.na,], col=4, cex=1, pch =16)
+
+
 ```
 
 ### Step 2: Run MCMC Sampler
 
-Run the MCMC sampler for inference:
+To run the MCMC sampler for inference teh main functions is `MCMC.sampler.st.DGLM` which takes following input to draw the posterior sampling from the model.
+- **`Y`**: The `n x T` data matrix, where `n` is the number of spatial locations and `T` is the number of temporal dimensions.
+
+- **`X`**: The design matrix of dimension `n x T x q`, where `q` represents the number of fixed effects covariates. This matrix includes the fixed effects coefficients used in the model.
+
+- **`loc`**: A matrix of spatial coordinates with dimensions `n x 2`, where each row corresponds to a spatial location.
+
+- **`num_harmonics`**: The number of harmonic terms used to model the seasonal components in the data.
+
+- **`seas.period`**: The seasonal period defining the time interval for periodicity in the data.
+
+- **`model`**: Specifies the type of model to be used. In this case, `"sparse"` indicates that a sparse model structure is being employed.
+
+- **`data_lik`**: The likelihood function for the observed data, defining the assumed statistical distribution for the response variable.
+
+- **`cor.type`**: The type of spatial correlation structure used in the model, such as Matérn or exponential covariance.
+
+- **`spatInt.ind`**: An index or indicator specifying which spatial locations are included in the spatial interaction terms.
+
+- **`forcast.ind`**: A vector specifying the indices of future time points for which predictions or forecasts will be generated. In this case, it is set to `1:7`, meaning predictions for the next 7 time steps.
+
+- **`N.MCMC`**: The total number of MCMC iterations to be performed in the sampler.
+
+- **`samples.store`**: The number of posterior samples to be stored for further analysis.
+
+- **`mesh.hyper`**: A hyperparameter setting related to the spatial mesh used in the model, which is selected from a predefined combination of mesh configurations.
+
+- **`print.result`**: A logical value (`TRUE` or `FALSE`) indicating whether to print summary results during the MCMC process.
+
+- **`traceplot`**: A logical value (`TRUE` or `FALSE`) specifying whether to generate trace plots of the sampled posterior parameters to assess convergence.
+
+- **`simulation`**: A logical value (`TRUE` or `FALSE`) indicating whether the function is being run on simulated data.
+
+- **`no_parallel_chain`**: Specifies the number of parallel MCMC chains to be executed simultaneously.
 
 ```{r mcmc-sampler}
 start_time <- Sys.time()
@@ -199,6 +248,271 @@ mcmc.output <- sparseDGLM::MCMC.sampler.st.DGLM(
 end_time <- Sys.time()
 run_time <- end_time - start_time
 run_time
+```
+
+# Extracting the Outputs 
+
+### Posterior Summary of Hyperparameters 
+```{r}
+mcmc.output$summery.hyper
+```
+
+
+### Posterior Summary of Fixed Effects Coeffiecients  
+```{r}
+mcmc.output$summary.fixed.effects.coeff
+```
+
+
+### Estiamte of Spatiotemproal Intercepts
+
+```{r, fig.width=8, fig.height=8}
+intcp_est_dense <- mcmc.output$summary.st.intercepot$mu.st$mean
+intcp_lci_dense <- mcmc.output$summary.st.intercepot$mu.st$quant2.5
+intcp_uci_dense <- mcmc.output$summary.st.intercepot$mu.st$quant97.5
+intcp_true <- sim_data$mu.st[1:mcmc.output$nt, -mcmc.output$spatInt.ind]
+set.seed(123)
+select.ind <- sample(1:ncol(intcp_true), size = 4, replace = FALSE)
+plot_list <- list()
+for (i in seq_along(select.ind)) {
+  idx <- select.ind[i]
+  data <- data.frame(
+    Time = 1:nrow(intcp_true),
+    True = intcp_true[, idx],
+    Dense_Est = intcp_est_dense[, idx],
+    Dense_LCI = intcp_lci_dense[, idx],
+    Dense_UCI = intcp_uci_dense[, idx]
+  )
+  # Create ggplot
+  p <- ggplot(data, aes(x = Time)) +
+    geom_point(aes(y = True, color = "True"), size = 1.5) + 
+    geom_ribbon(aes(ymin = Dense_LCI, ymax = Dense_UCI, fill = "Dense"), alpha = 0.3) +
+    geom_line(aes(y = Dense_Est, color = "Dense"), size = 1) +
+    labs(
+      title = paste0("Site ", idx),
+      y = expression(mu[t](s)),
+      x = "Time",
+      color = "Est",
+      fill = "CI"
+    ) +
+    scale_color_manual(values = c("True" = "black", "Dense" = "blue")) +
+    scale_fill_manual(values = c("Dense" = "#87CEFA")) +
+    theme_minimal() +
+    theme(
+      legend.position = ifelse(i == length(select.ind), "bottom", "none"),
+      plot.title = element_text(size = 18, face = "bold", hjust = 0.5), 
+      axis.title = element_text(size = 16, face = "bold"),               
+      axis.text = element_text(size = 14),                              
+      legend.title = element_text(size = 14, face = "bold"),            
+      legend.text = element_text(size = 12),                            
+      plot.caption = element_text(size = 12, hjust = 0.5)              
+    )
+
+  plot_list[[i]] <- p
+}
+g <- grid.arrange(grobs = plot_list, ncol = 2)
+g
+```
+
+### Spatial Interpolations (Krigging)
+
+```{r, fig.width=8, fig.height=8} 
+spatintpl_est_dense <- mcmc.output$predictions$spatial$median
+spatintpl_lci_dense <- mcmc.output$predictions$spatial$quant2.5
+spatintpl_uci_dense <- mcmc.output$predictions$spatial$quant97.5
+spatintpl_true <- sim_data$y[1:mcmc.output$nt, mcmc.output$spatInt.ind]
+set.seed(2)
+select.ind <- sample(1:length(mcmc.output$spatInt.ind), size = 4, replace = FALSE)
+plot_list <- list()
+for (i in seq_along(select.ind)) {
+  idx <- select.ind[i]
+  data <- data.frame(
+    Time = 1:nrow(spatintpl_true),
+    True = log(1 + spatintpl_true[, idx]),
+    Dense_Est = log(1 + spatintpl_est_dense[, idx]),
+    Dense_LCI = log(1 + spatintpl_lci_dense[, idx]),
+    Dense_UCI = log(1 + spatintpl_uci_dense[, idx])
+  )
+
+  # Create ggplot for each site
+  p <- ggplot(data, aes(x = Time)) +
+    geom_point(aes(y = True, color = "True"), size = 1.5) +
+    geom_ribbon(aes(ymin = Dense_LCI, ymax = Dense_UCI, fill = "Dense"), alpha = 0.3) +
+    geom_line(aes(y = Dense_Est, color = "Dense"), size = 1) +
+    labs(
+      title = paste0("Site ", mcmc.output$spatInt.ind[idx]),
+      y = expression(log(1+Y[t](s))),
+      x = "Time",
+      color = "Est.",
+      fill = "CI"
+    ) +
+    scale_color_manual(values = c("True" = "black", "Dense" = "#0072B2")) +
+    scale_fill_manual(values = c("Dense" = "#87CEFA")) +
+    theme_minimal() +
+    theme(
+      legend.position = ifelse(i == length(select.ind), "bottom", "none"),
+      plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+      axis.title = element_text(size = 16, face = "bold"),
+      axis.text = element_text(size = 14),
+      legend.title = element_text(size = 14, face = "bold"),
+      legend.text = element_text(size = 12)
+    )
+
+  plot_list[[i]] <- p
+}
+
+g <- grid.arrange(grobs = plot_list, ncol = 1)
+g
+```
+
+### Future Forecasting 
+
+```{r, fig.width=8, fig.height=10}
+spatintpl_est_dense <- mcmc.output$predictions$forecast$median
+spatintpl_lci_dense <- mcmc.output$predictions$forecast$quant2.5
+spatintpl_uci_dense <- mcmc.output$predictions$forecast$quant97.5
+spatintpl_true <- sim_data$y[-(1:mcmc.output$nt), -mcmc.output$spatInt.ind]
+set.seed(1)
+select.ind <- sample(1:mcmc.output$ns, size = 4, replace = FALSE)
+plot_list <- list()
+for (i in seq_along(select.ind)) {
+  idx <- select.ind[i]
+  data <- data.frame(
+    Time = 1:nrow(spatintpl_true),
+    True = log(1 + spatintpl_true[, idx]),
+    Dense_Est = log(1 + spatintpl_est_dense[, idx]),
+    Dense_LCI = log(1 + spatintpl_lci_dense[, idx]),
+    Dense_UCI = log(1 + spatintpl_uci_dense[, idx])
+  )
+
+  # Create ggplot for each site
+  p <- ggplot(data, aes(x = Time)) +
+    geom_point(aes(y = True, color = "True"), size = 1.5) +  # Slightly larger points
+    geom_ribbon(aes(ymin = Dense_LCI, ymax = Dense_UCI, fill = "Dense"), alpha = 0.3) +
+    geom_line(aes(y = Dense_Est, color = "Dense"), size = 1) +
+    labs(
+      title = paste0("Site ", idx),
+      y = expression(log(1+Y[t](s))),
+      x = "Time",
+      color = "Est",
+      fill = "CI"
+    ) +
+    scale_color_manual(values = c("True" = "black","Dense" = "blue")) +
+    scale_fill_manual(values = c("Dense" = "#87CEFA")) +
+    theme_minimal() +
+    theme(
+      legend.position = ifelse(i == length(select.ind), "bottom", "none"),
+      plot.title = element_text(size = 18, face = "bold", hjust = 0.5),  # Larger title
+      axis.title = element_text(size = 16, face = "bold"),               # Larger axis titles
+      axis.text = element_text(size = 14),                              # Larger axis text
+      legend.title = element_text(size = 14, face = "bold"),            # Larger legend title
+      legend.text = element_text(size = 12),                            # Larger legend text
+      plot.caption = element_text(size = 12, hjust = 0.5)               # Larger captions
+    )
+
+  plot_list[[i]] <- p
+}
+g <- grid.arrange(grobs = plot_list, ncol = 2)
+g
+```
+
+
+### Spatiotemproal Prediction 
+
+```{r, fig.width=8, fig.height=10}
+spatintpl_est_dense <- mcmc.output$predictions$space.time$median
+spatintpl_lci_dense <- mcmc.output$predictions$space.time$quant2.5
+spatintpl_uci_dense <- mcmc.output$predictions$space.time$quant97.5
+spatintpl_true <- sim_data$y[-(1:mcmc.output$nt), mcmc.output$spatInt.ind]
+set.seed(12)
+select.ind <- sample(1:length(mcmc.output$spatInt.ind), size = 6, replace = FALSE)
+plot_list <- list()
+for (i in seq_along(select.ind)) {
+  idx <- select.ind[i]
+  data <- data.frame(
+    Time = 1:nrow(spatintpl_true),
+    True = log(1 + spatintpl_true[, idx]),
+    Dense_Est = log(1 + spatintpl_est_dense[, idx]),
+    Dense_LCI = log(1 + spatintpl_lci_dense[, idx]),
+    Dense_UCI = log(1 + spatintpl_uci_dense[, idx])
+  )
+  p <- ggplot(data, aes(x = Time)) +
+    geom_point(aes(y = True, color = "True"), size = 1.5) + 
+    geom_ribbon(aes(ymin = Dense_LCI, ymax = Dense_UCI, fill = "Dense"), alpha = 0.3) +
+    geom_line(aes(y = Dense_Est, color = "Dense"), size = 1) +
+    labs(
+      title = paste0("Site ", idx),
+      y = expression(log(1+Y[t](s))),
+      x = "Time",
+      color = "Est.",
+      fill = "CI"
+    ) +
+    scale_color_manual(values = c("True" = "black", "Dense" = "#0072B2")) +
+    scale_fill_manual(values = c("Dense" = "#87CEFA")) +
+    theme_minimal() +
+    theme(
+      legend.position = ifelse(i == length(select.ind), "bottom", "none"),
+      plot.title = element_text(size = 18, face = "bold", hjust = 0.5),  # Larger, bold title
+      axis.title = element_text(size = 16, face = "bold"),               # Larger axis titles
+      axis.text = element_text(size = 14),                              # Larger axis text
+      legend.title = element_text(size = 14, face = "bold"),            # Larger legend title
+      legend.text = element_text(size = 12)                             # Larger legend text
+    )
+
+  plot_list[[i]] <- p
+}
+g <- grid.arrange(grobs = plot_list, ncol = 2)
+g
+```
+
+
+### Coefficents of Dynamic Temproal Components
+
+```{r, fig.width=8, fig.height=6}
+est.temp.eff <- mcmc.output$summary.dynamic.temp.coeff$mean
+true.temp.eff <- sim_data$theta[1:mcmc.output$nt, ]
+lci.temp.eff <- mcmc.output$summary.dynamic.temp.coeff$quant2.5
+uci.temp.eff <- mcmc.output$summary.dynamic.temp.coeff$quant97.5
+plot_list <- list()
+for (i in 1:ncol(true.temp.eff)) {
+  data <- data.frame(
+    Time = 1:nrow(true.temp.eff),
+    True = true.temp.eff[, i],
+    Est = est.temp.eff[, i],
+    LCI = lci.temp.eff[, i],
+    UCI = uci.temp.eff[, i]
+  )
+  ran <- c(
+    min(data$True, data$Est, data$LCI, data$UCI, na.rm = TRUE),
+    max(data$True, data$Est, data$LCI, data$UCI, na.rm = TRUE)
+  )
+  p <- ggplot(data, aes(x = Time)) +
+    geom_point(aes(y = True, color = "True"), size = 1.5) +
+    geom_line(aes(y = Est, color = "Estimated"), size = 1.5) +
+    geom_ribbon(aes(ymin = LCI, ymax = UCI, fill = "CI"), alpha = 0.3) +
+    scale_color_manual(values = c("True" = "black", "Estimated" = "red")) +
+    scale_fill_manual(values = c("CI" = "blue")) +
+    labs(
+      y = expression(theta[t]),
+      x = "Time",
+      color = "Legend",
+      fill = "Legend"
+    ) +
+    coord_cartesian(ylim = ran) +
+    theme_minimal() +
+    theme(
+      legend.position = ifelse(i == ncol(true.temp.eff), "bottom", "none"),  
+      plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+      axis.title = element_text(size = 16, face = "bold"),
+      axis.text = element_text(size = 14),
+      legend.title = element_text(size = 14, face = "bold"),
+      legend.text = element_text(size = 12)
+    )
+
+  plot_list[[i]] <- p
+}
+g <- grid.arrange(grobs = plot_list, ncol = 1)
+g
 ```
 
 # Conclusion
