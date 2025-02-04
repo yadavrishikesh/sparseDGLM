@@ -37,7 +37,7 @@ setwd(this.path::here())
 ### Step 1: Generate Spatial Locations
 Simulate 100 spatial locations uniformly in $[0,1]^2$. These locations will be further used in our analysis at the spatial sites at which we will generate the data. 
 
-```{r simulate-locations, fig.width=8, fig.height=6}
+```{r simulate-locations, fig.width=6, fig.height=6}
 nt <- 200
 ns <- 100
 set.seed(1)
@@ -139,7 +139,7 @@ sim_data <- sparseDGLM::sim_synthetic_data(
 
 ### Examine the simulated dataset:
 
-```{r examine-data, fig.width=8, fig.height=8}
+```{r examine-data, fig.width=7, fig.height=7}
 par(mfrow=c(2,2))
 hist(log(1+sim_data$y), xlab = expression(log(1+Y)), 
      main="Histograms of log-transformed data")
@@ -210,8 +210,15 @@ list(max.edge = c(2, 2), cutoff = 0.1, offset = c(0.05, 0.2))
   - `offset = c(0.05, 0.2)`: The mesh extends **0.05 units** inward and **0.2 units** outward.
 
 #### **2. Selecting a Mesh Configuration (`mesh.hyper`)**
-```r
+```{r}
 model_no <- 4
+## hyper-parameter used for four different combinations of mesh nodes construction
+mesh.hyper.comb <- list(
+  list(max.edge = c(2, 2), cutoff = 0.1, offset = c(0.05, 0.2)),
+  list(max.edge = c(2, 2), cutoff = 0.06, offset = c(0.05, 0.2)),
+  list(max.edge = c(2, 2), cutoff = 0.04, offset = c(0.05, 0.2)),
+  list(max.edge = c(2, 2), cutoff = 0.03, offset = c(0.05, 0.2))
+)
 mesh.hyper <- mesh.hyper.comb[[model_no]]
 ```
 - `model_no = 4`: Selects the **fourth** hyperparameter combination from `mesh.hyper.comb`.
@@ -220,7 +227,7 @@ mesh.hyper <- mesh.hyper.comb[[model_no]]
 ---
 
 #### **3. Mesh Construction (`INLA::inla.mesh.2d`)**
-```r
+```{r}
 INLA.mesh <- INLA::inla.mesh.2d(
   loc = as.matrix(loc),
   max.edge = mesh.hyper$max.edge,
@@ -239,7 +246,7 @@ INLA.mesh <- INLA::inla.mesh.2d(
 ---
 
 #### **4. Projection Matrix (`A.proj`)**
-```r
+```{r}
 A.proj <- inla.spde.make.A(mesh = INLA.mesh, loc = as.matrix(loc))
 ```
 - **Purpose**: Projects the observation locations onto the mesh for **spatial interpolation**.
@@ -256,7 +263,7 @@ A.proj <- inla.spde.make.A(mesh = INLA.mesh, loc = as.matrix(loc))
 ---
 
 #### **5. Plotting the Spatial Mesh**
-```r
+```{r, fig.width=6, fig.height=6}
 par(mfrow=c(1,1))
 plot(INLA.mesh)
 points(loc, col=2, cex=1, pch=16)
@@ -264,35 +271,6 @@ points(loc[spatInt.ind,], col=3, cex=1, pch=16)
 points(loc[miss.artfical.na,], col=4, cex=1, pch=16)
 ```
 
-
-```{r mesh-hyperparameters, fig.width=5, fig.height=5}
-## hyper-parameter used for four different combinations of mesh nodes construction
-mesh.hyper.comb <- list(
-  list(max.edge = c(2, 2), cutoff = 0.1, offset = c(0.05, 0.2)),
-  list(max.edge = c(2, 2), cutoff = 0.06, offset = c(0.05, 0.2)),
-  list(max.edge = c(2, 2), cutoff = 0.04, offset = c(0.05, 0.2)),
-  list(max.edge = c(2, 2), cutoff = 0.03, offset = c(0.05, 0.2))
-)
-
-model_no<- 4
-mesh.hyper<- mesh.hyper.comb[[model_no]]
-INLA.mesh <- INLA::inla.mesh.2d(loc = as.matrix(loc),
-                                max.edge = mesh.hyper$max.edge,
-                                cutoff = mesh.hyper$cutoff,
-                                offset = mesh.hyper$offset
-)
-
-A.proj<- inla.spde.make.A(mesh=INLA.mesh, loc = as.matrix(loc))
-dim(A.proj)[2]
-par(mfrow=c(1,1))
-plot(INLA.mesh)
-dim(INLA.mesh$n)
-points(loc, col=2, cex=1, pch =16)
-points(loc[spatInt.ind,], col=3, cex=1, pch =16)
-points(loc[miss.artfical.na,], col=4, cex=1, pch =16)
-
-
-```
 
 ### Step 2: Run MCMC Sampler
 
@@ -344,7 +322,7 @@ mcmc.output <- sparseDGLM::MCMC.sampler.st.DGLM(
   cor.type = cor.type,
   spatInt.ind = spatInt.ind,
   forcast.ind = 1:14,
-  N.MCMC = 2000,
+  N.MCMC = 1e4,
   samples.store = 250,
   mesh.hyper = mesh.hyper.comb[[4]],
   print.result = FALSE,
@@ -360,24 +338,53 @@ run_time
 # Step 3: Extracting the Outputs 
 
 ### Posterior Summary of Hyperparameters 
+This **extracts the posterior summary of model hyperparameters** estimated from the MCMC sampling process. The summary typically includes:
+
+- **Posterior mean** and **credible intervals** for key model parameters.
+- **Variance components**, such as:
+  - `sigma2`: Process variance controlling temporal dynamics.
+  - `tau2`: Measurement error variance.
+- **Spatial dependence parameters**, such as:
+  - `kappa`: Range parameter governing spatial correlation.
+  - `rho`: Temporal autocorrelation parameter.
+- **Fixed effect estimates**, including:
+  - `beta0`: Intercept.
+  - `beta`: Regression coefficients for covariates.
+- **Harmonic component parameters**, if applicable.
+
 ```{r}
 mcmc.output$summery.hyper
 ```
 
-
 ### Posterior Summary of Fixed Effects Coeffiecients  
+This **extracts the posterior summary of fixed effect coefficients** estimated from the MCMC sampling process. The summary includes:
+
+- **Posterior mean** and **credible intervals** for fixed effects.
+- **Regression coefficients (`β`)**, which quantify the impact of covariates on the response variable.
+- **Intercept (`β₀`)**, representing the baseline level of the response variable.
+- **Uncertainty estimates**, such as:
+  - Posterior standard deviation.
+  - 95% credible intervals (lower and upper bounds).
+
+This output helps in assessing the **significance** of the fixed effects in the **spatiotemporal dynamic model**, providing key insights into the influence of covariates.
 ```{r}
 mcmc.output$summary.fixed.effects.coeff
 ```
 
+### Extracting Posterior Estimates of Spatiotemporal Intercepts
+This section demonstrate to extracts and visualizes the **spatiotemporal intercept estimates** from the MCMC sampling process. The spatiotemporal intercept **\(\mu_t(s)\)** represents the evolving baseline trend at different spatial locations over time.
 
-### Estiamte of Spatiotemproal Intercepts
-
-```{r, fig.width=8, fig.height=8}
+```{r}
 intcp_est_dense <- mcmc.output$summary.st.intercepot$mu.st$mean
 intcp_lci_dense <- mcmc.output$summary.st.intercepot$mu.st$quant2.5
 intcp_uci_dense <- mcmc.output$summary.st.intercepot$mu.st$quant97.5
 intcp_true <- sim_data$mu.st[1:mcmc.output$nt, -mcmc.output$spatInt.ind]
+```
+- `intcp_est_dense`: **Posterior mean** of spatiotemporal intercepts.
+- `intcp_lci_dense`: **Lower bound (2.5% quantile)** of the credible interval.
+- `intcp_uci_dense`: **Upper bound (97.5% quantile)** of the credible interval.
+
+```{r, fig.width=6, fig.height=6}
 set.seed(1)
 select.ind <- sample(1:ncol(intcp_true), size = 4, replace = FALSE)
 plot_list <- list()
@@ -420,14 +427,37 @@ for (i in seq_along(select.ind)) {
 g <- grid.arrange(grobs = plot_list, ncol = 2)
 g
 ```
+- **True values (black points)**: Represent actual intercept values.
+- **Estimated intercepts (blue line)**: Show posterior mean estimates.
+- **Shaded region (credible interval)**: Represents model uncertainty.
+
+```{r, fig.width=8, fig.height=8}
+intcp_est_dense <- mcmc.output$summary.st.intercepot$mu.st$mean
+intcp_lci_dense <- mcmc.output$summary.st.intercepot$mu.st$quant2.5
+intcp_uci_dense <- mcmc.output$summary.st.intercepot$mu.st$quant97.5
+intcp_true <- sim_data$mu.st[1:mcmc.output$nt, -mcmc.output$spatInt.ind]
+
+```
+
+
 
 ### Spatial Interpolations (Krigging)
 
-```{r, fig.width=8, fig.height=8} 
+
+This section **evaluates the spatial interpolation (kriging) results** by comparing predicted values with true values at spatial integration sites. Kriging is a method used to estimate values at **unobserved spatial locations** based on **observed data**.
+
+```{r}
 spatintpl_est_dense <- mcmc.output$predictions$spatial$median
 spatintpl_lci_dense <- mcmc.output$predictions$spatial$quant2.5
 spatintpl_uci_dense <- mcmc.output$predictions$spatial$quant97.5
 spatintpl_true <- sim_data$y[1:mcmc.output$nt, mcmc.output$spatInt.ind]
+```
+- `spatintpl_est_dense`: **Median prediction** for spatial interpolation.
+- `spatintpl_lci_dense`: **Lower bound (2.5% quantile)** of the **credible interval**.
+- `spatintpl_uci_dense`: **Upper bound (97.5% quantile)** of the **credible interval**.
+- `spatintpl_true`: **true observed values** \(Y_t(s)\) at the given spatial sites.
+
+```{r, fig.width=6, fig.height=6}
 set.seed(2)
 select.ind <- sample(1:length(mcmc.output$spatInt.ind), size = 4, replace = FALSE)
 plot_list <- list()
@@ -467,18 +497,25 @@ for (i in seq_along(select.ind)) {
 
   plot_list[[i]] <- p
 }
-
 g <- grid.arrange(grobs = plot_list, ncol = 1)
 g
 ```
 
 ### Future Forecasting 
 
-```{r, fig.width=6, fig.height=6}
+This section evaluates the **future predictions** generated by the model for **unobserved time points** beyond the training period. The **forecasting results** are compared with the true values from simulated data, focusing on uncertainty quantification using posterior distributions.
+
+```{r}
 spatintpl_est_dense <- mcmc.output$predictions$forecast$median
 spatintpl_lci_dense <- mcmc.output$predictions$forecast$quant2.5
 spatintpl_uci_dense <- mcmc.output$predictions$forecast$quant97.5
 spatintpl_true <- sim_data$y[-(1:mcmc.output$nt), -mcmc.output$spatInt.ind]
+```
+- `spatintpl_est_dense`: **Median posterior prediction** for future values.
+- `spatintpl_lci_dense`: **Lower bound (2.5% quantile)** of the **credible interval**.
+- `spatintpl_uci_dense`: **Upper bound (97.5% quantile)** of the **credible interval**.
+
+```{r, fig.width=6, fig.height=6}
 set.seed(1)
 select.ind <- sample(1:mcmc.output$ns, size = 4, replace = FALSE)
 plot_list <- list()
@@ -526,11 +563,19 @@ g
 
 ### Spatiotemproal Prediction 
 
-```{r, fig.width=8, fig.height=10}
+This section evaluates the **spatiotemporal predictions** by comparing the model’s posterior predictions with true values across both **space and time**. The focus is on estimating the **evolution of values at specific spatial locations over future time points**.
+
+```{r}
 spatintpl_est_dense <- mcmc.output$predictions$space.time$median
 spatintpl_lci_dense <- mcmc.output$predictions$space.time$quant2.5
 spatintpl_uci_dense <- mcmc.output$predictions$space.time$quant97.5
 spatintpl_true <- sim_data$y[-(1:mcmc.output$nt), mcmc.output$spatInt.ind]
+```
+- `spatintpl_est_dense`: **Posterior median estimate** for spatiotemporal predictions.
+- `spatintpl_lci_dense`: **Lower bound (2.5% quantile)** of the **credible interval**.
+- `spatintpl_uci_dense`: **Upper bound (97.5% quantile)** of the **credible interval**.
+
+```{r, fig.width=6, fig.height=6}
 set.seed(12)
 select.ind <- sample(1:length(mcmc.output$spatInt.ind), size = 6, replace = FALSE)
 plot_list <- list()
@@ -575,11 +620,19 @@ g
 
 ### Coefficents of Dynamic Temproal Components
 
-```{r, fig.width=8, fig.height=6}
+This section evaluates the **dynamic temporal coefficients** (\(\theta_t\)), comparing the model’s posterior estimates with the true underlying values. These coefficients represent **time-evolving effects** that capture temporal dependencies in the model.
+
+```{r}
 est.temp.eff <- mcmc.output$summary.dynamic.temp.coeff$mean
-true.temp.eff <- sim_data$theta[1:mcmc.output$nt, ]
 lci.temp.eff <- mcmc.output$summary.dynamic.temp.coeff$quant2.5
 uci.temp.eff <- mcmc.output$summary.dynamic.temp.coeff$quant97.5
+true.temp.eff <- sim_data$theta[1:mcmc.output$nt, ]
+```
+- `est.temp.eff`: **Posterior mean estimate** of the temporal coefficients.
+- `lci.temp.eff`: **Lower bound (2.5% quantile)** of the **credible interval**.
+- `uci.temp.eff`: **Upper bound (97.5% quantile)** of the **credible interval**.
+
+```{r, fig.width=6, fig.height=6}
 plot_list <- list()
 for (i in 1:ncol(true.temp.eff)) {
   data <- data.frame(
@@ -621,7 +674,3 @@ for (i in 1:ncol(true.temp.eff)) {
 g <- grid.arrange(grobs = plot_list, ncol = 1)
 g
 ```
-
-# Conclusion
-
-This vignette showcased the steps for simulating data, introducing missing values, and performing MCMC-based inference using the `sparseDGLM` package. For more advanced use cases, refer to the package documentation.
