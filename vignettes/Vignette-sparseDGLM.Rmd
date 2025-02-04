@@ -35,8 +35,7 @@ setwd(this.path::here())
 # Simulating Data
 
 ### Step 1: Generate Spatial Locations
-
-Simulate spatial locations for 100 sites:
+Simulate 100 spatial locations uniformly in $[0,1]^2$. These locations will be further used in our analysis at the spatial sites at which we will generate the data. 
 
 ```{r simulate-locations, fig.width=8, fig.height=6}
 nt <- 200
@@ -49,7 +48,7 @@ ggplot(loc, aes(x=Long, y =Lat)) +
   theme_minimal()
 ```
 
-### Step 2: Create Fixed Effects Covariates
+### Step 2: Create Fixed Effects Covariates (Simulaute Randomly)
 
 ```{r fixed-effects-covariates}
 X <- array(NA, dim = c(nt, ns, 3))
@@ -61,7 +60,17 @@ X[,,3] <- matrix(rnorm(nt * ns, sd = sqrt(5)), nrow = nt, ncol = ns)
 
 ### Step 3: Generate Temporal Components
 
-Generate harmonic matrices for temporal dynamics:
+The **`generate_harmonic_matrices`** function from the **`sparseDGLM`** package generates harmonic matrices to model **seasonal temporal dynamics** in a **dynamic linear model (DLM)** framework. This function helps incorporate **cyclical patterns** into time-series models, making it useful for **forecasting and trend analysis** in structured spatiotemporal data. 
+
+- **Inputs:**
+  - `nt`: Number of time points (here set to `nt=200`)
+  - `num_harmonics`: Number of harmonics 
+  - `period`: Seasonal period (e.g., `7` for weekly seasonality)
+
+- **Outputs:**
+  - `Ft.all`: **Design matrix (`Ft`)** capturing seasonal variations.
+  - `G.all`: **State transition matrix (`G`)** governing the temporal evolution.
+
 
 ```{r generate-harmonics}
 seas.period <- 7
@@ -75,7 +84,30 @@ Wt <- diag(c(0.01, 0.02))
 
 ### Step 4: Simulate Data
 
-Define model parameters and simulate synthetic data:
+The **`sim_synthetic_data`** function from the **`sparseDGLM`** package simulates **synthetic spatiotemporal data** based on a specified **dynamic generalized linear model (DGLM)** framework. This function is useful for simulating synthetic data for **testing and validating** spatiotemporal models before applying them to real-world datasets. 
+
+- **Inputs:**
+  - `nt`: Number of time points.
+  - `model`: Type of model structure (three choices; `dense`, `sparse`, and `bayes.reg`).
+  - `data_lik`: Likelihood function (e.g., `"Poisson"` for count data). Other possibilities included `NegB` and `lNormal` for Negative binomial and log-normal respectively. 
+  - `loc`: Spatial locations of sites. A matrix with first column passed a Latitude and second one with the Latitude
+  - `hyper`: List of **model hyperparameters**, including:
+    - `r, k`: Hyperparameter of data likelihood in case of `NegB` and `lNormal` is used instead of `Poisson` 
+    - `kappa`: Spatial range parameter used in the specification of spatiotemporal intercepts 
+    - `sigma2`: Variance of 
+    - `tau2`: Variance components of independent random effects 
+    - `Wt`: Process noise covariance.
+  - `beta0`: Fixed Intercept term (used only when we want to simulate from )
+  - `beta`: Fixed effects regression coefficients
+  - `X`: Covariate data array. An array of dimension `nt x ns x q` where `q` is the number of fixed effects covarites. 
+  - `Ft, G`: Harmonic matrices for temporal dynamics.
+  - `cor.type`: Spatial correlation structure (`"Matern1"` used here).
+  - `theta0`: Initial state vector.
+  - `mu0, C0, R0`: Initial conditions for the state process. 
+
+- **Outputs:**
+  - `sim_data`: A simulated dataset containing **spatiotemporal observations** with structured dependencies.
+
 
 ```{r simulate-data}
 hyper <- list(r = 100, k = 0.5, kappa = 0.35, sigma2 = 0.1, tau2 = 0.05, Wt = Wt) ## model hyperparameters 
@@ -158,6 +190,81 @@ for (site in seq_along(miss.artfical.na)) {
 
 ### Step 1: Define Mesh Hyperparameters
 
+In this section we demonstrate the R code that defines **hyperparameters** for constructing a **spatial mesh** using the **Integrated Nested Laplace Approximation (INLA)** framework. This is essential in **spatial modeling**, where the mesh discretizes the study domain to enable efficient inference. The key components are explained below:
+
+#### **1. Mesh Hyperparameter Combinations (`mesh.hyper.comb`)**
+- This **list of lists** stores four different **hyperparameter combinations** used to define the spatial mesh.
+- Each combination includes:
+  - `max.edge`: A vector defining the **maximum edge length** for mesh triangles in the interior and exterior.
+  - `cutoff`: The **minimum allowable distance** between two mesh nodes. Smaller values create a denser mesh.
+  - `offset`: A vector defining the **outer extension** of the mesh domain.
+
+##### **Example Values:**
+```r
+list(max.edge = c(2, 2), cutoff = 0.1, offset = c(0.05, 0.2))
+```
+
+- Here:
+  - `max.edge = c(2, 2)`: The **maximum edge length** of the mesh triangles is 2.
+  - `cutoff = 0.1`: Ensures nodes closer than 0.1 units are merged.
+  - `offset = c(0.05, 0.2)`: The mesh extends **0.05 units** inward and **0.2 units** outward.
+
+#### **2. Selecting a Mesh Configuration (`mesh.hyper`)**
+```r
+model_no <- 4
+mesh.hyper <- mesh.hyper.comb[[model_no]]
+```
+- `model_no = 4`: Selects the **fourth** hyperparameter combination from `mesh.hyper.comb`.
+- `mesh.hyper`: Stores the corresponding **mesh parameter settings**.
+
+---
+
+#### **3. Mesh Construction (`INLA::inla.mesh.2d`)**
+```r
+INLA.mesh <- INLA::inla.mesh.2d(
+  loc = as.matrix(loc),
+  max.edge = mesh.hyper$max.edge,
+  cutoff = mesh.hyper$cutoff,
+  offset = mesh.hyper$offset
+)
+```
+- **Purpose**: Creates a **spatial triangulation mesh** over the study region.
+- **Inputs:**
+  - `loc`: Matrix of **spatial locations** (site coordinates).
+  - `max.edge`: Maximum triangle edge length (from `mesh.hyper`).
+  - `cutoff`: Minimum node spacing (from `mesh.hyper`).
+  - `offset`: Mesh extension boundary (from `mesh.hyper`).
+- **Output**: `INLA.mesh`, an object containing the **triangulated mesh**.
+
+---
+
+#### **4. Projection Matrix (`A.proj`)**
+```r
+A.proj <- inla.spde.make.A(mesh = INLA.mesh, loc = as.matrix(loc))
+```
+- **Purpose**: Projects the observation locations onto the mesh for **spatial interpolation**.
+- **Input**: 
+  - `mesh`: The generated **INLA mesh**.
+  - `loc`: The **spatial locations**.
+- **Output**: `A.proj`, a matrix mapping observation locations to mesh nodes.
+- **Dimension Check**:
+  ```r
+  dim(A.proj)[2]
+  ```
+  - Returns the number of **mesh nodes**.
+
+---
+
+#### **5. Plotting the Spatial Mesh**
+```r
+par(mfrow=c(1,1))
+plot(INLA.mesh)
+points(loc, col=2, cex=1, pch=16)
+points(loc[spatInt.ind,], col=3, cex=1, pch=16)
+points(loc[miss.artfical.na,], col=4, cex=1, pch=16)
+```
+
+
 ```{r mesh-hyperparameters, fig.width=5, fig.height=5}
 ## hyper-parameter used for four different combinations of mesh nodes construction
 mesh.hyper.comb <- list(
@@ -236,9 +343,9 @@ mcmc.output <- sparseDGLM::MCMC.sampler.st.DGLM(
   data_lik = data_lik,
   cor.type = cor.type,
   spatInt.ind = spatInt.ind,
-  forcast.ind = 1:7,
-  N.MCMC = 1000,
-  samples.store = 200,
+  forcast.ind = 1:14,
+  N.MCMC = 2000,
+  samples.store = 250,
   mesh.hyper = mesh.hyper.comb[[4]],
   print.result = FALSE,
   traceplot = FALSE,
@@ -250,7 +357,7 @@ run_time <- end_time - start_time
 run_time
 ```
 
-# Extracting the Outputs 
+# Step 3: Extracting the Outputs 
 
 ### Posterior Summary of Hyperparameters 
 ```{r}
@@ -271,7 +378,7 @@ intcp_est_dense <- mcmc.output$summary.st.intercepot$mu.st$mean
 intcp_lci_dense <- mcmc.output$summary.st.intercepot$mu.st$quant2.5
 intcp_uci_dense <- mcmc.output$summary.st.intercepot$mu.st$quant97.5
 intcp_true <- sim_data$mu.st[1:mcmc.output$nt, -mcmc.output$spatInt.ind]
-set.seed(123)
+set.seed(1)
 select.ind <- sample(1:ncol(intcp_true), size = 4, replace = FALSE)
 plot_list <- list()
 for (i in seq_along(select.ind)) {
@@ -367,7 +474,7 @@ g
 
 ### Future Forecasting 
 
-```{r, fig.width=8, fig.height=10}
+```{r, fig.width=6, fig.height=6}
 spatintpl_est_dense <- mcmc.output$predictions$forecast$median
 spatintpl_lci_dense <- mcmc.output$predictions$forecast$quant2.5
 spatintpl_uci_dense <- mcmc.output$predictions$forecast$quant97.5
