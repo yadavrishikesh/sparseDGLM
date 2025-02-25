@@ -322,7 +322,7 @@ mcmc.output <- sparseDGLM::MCMC.sampler.st.DGLM(
   cor.type = cor.type,
   spatInt.ind = spatInt.ind,
   forcast.ind = 1:14,
-  N.MCMC = 1e4,
+  N.MCMC = 2e3,
   samples.store = 250,
   mesh.hyper = mesh.hyper.comb[[4]],
   print.result = FALSE,
