@@ -18,3 +18,9 @@ You can install the development version of sparseDGLM from [GitHub](https://gith
 ``` r
 remotes::install_github("yadavrishikesh/sparseDGLM") 
 ```
+
+## Vignette File
+
+For a detailed description of the package, including model specifications, implementation steps, and examples demonstrating how to generate results and reproduce outputs, please see the vignette available at the link below:
+
+👉 [Vignette](https://yadavrishikesh.github.io/sparseDGLM/)
