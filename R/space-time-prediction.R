@@ -165,7 +165,7 @@ pred.dense <- function(nt,
                        mus.samples,
                        r.samples,
                        k.samples) {
-
+ #browser()
 
   if(pred_type=="spatInt"){
     ns.pred <- length(spatInt.ind)
@@ -177,7 +177,9 @@ pred.dense <- function(nt,
     cov_sim <- Sigma.pred - Sigma.pred.obs %*% inv_Sigma.obs %*% t(Sigma.pred.obs)
     mus.mean <- t(Sigma.pred.obs %*% inv_Sigma.obs %*% t(mus.samples))
 
-    mus.pred <- mus.mean #c(mvtnorm::rmvnorm(n = 1, mean = mus.mean, sigma =  as.matrix(Matrix::forceSymmetric(cov_sim))))
+    #mus.pred <- c(mvtnorm::rmvnorm(n = 1, mean = mus.mean, sigma =  as.matrix(Matrix::forceSymmetric(cov_sim)))) #mus.mean # (this was earlier, perhaps to cope with extremely crazy variances)
+    mus.pred <- mus.mean + mvtnorm::rmvnorm(n = nt, mean = rep(0, ns.pred), sigma = cov_sim)
+
     Ft.mean <- matrix(rowSums(Ft.o[1:nt,] * theta.samples), nrow = nt, ncol = ns.pred)
     comp.cov<- matrix(c(X.intpl %*% beta.samples), nrow = nt, ncol=ns.pred)
 
@@ -235,7 +237,10 @@ pred.dense <- function(nt,
     Sigma.pred.obs <- Sigma.kappa[spatInt.ind, -spatInt.ind]
     cov_sim <- Sigma.pred - Sigma.pred.obs %*% inv_Sigma.obs %*% t(Sigma.pred.obs)
     mus.mean.nt <-  c(Sigma.pred.obs %*% inv_Sigma.obs %*% (mus.samples[nt, ]))  # c(Sigma.pred.obs %*% inv_Sigma.obs %*% mus.samples)
-    mus.pred.nt <- mus.mean.nt # c(mvtnorm::rmvnorm(n = 1, mean = mus.mean.nt, sigma = as.matrix(Matrix::forceSymmetric(cov_sim))))
+
+     mus.pred.nt <- mus.mean.nt # c(mvtnorm::rmvnorm(n = 1, mean = mus.mean.nt, sigma = as.matrix(Matrix::forceSymmetric(cov_sim)))) ## mus.mean.nt, ## this was earlier
+
+    # mus.pred.nt = mus.mean.nt + mvtnorm::rmvnorm(n = nt.pred, mean = rep(0, ns.pred), sigma = cov_sim)
 
     mus.pred<-  matrix(NA, nrow=nt.pred, ncol=ns.pred)
     mus.pred[1,]<- mus.pred.nt + mvtnorm::rmvnorm(n=1, sigma = as.matrix(Matrix::forceSymmetric(cov_sim)))
