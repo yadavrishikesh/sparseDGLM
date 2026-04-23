@@ -34,12 +34,12 @@
 #' updated_kappa <- update_kappa.dense(nt, cur.kappa, mu, mu0, sigma2, log.det, cov_inv, delta, tun.kappa, dist.mat, cor.type)
 #' }
 update_kappa.dense<- function(nt, cur.kappa, mu, mu0, sigma2, log.det, cov_inv, delta, tun.kappa, dist.mat, cor.type, ind=FALSE){
-  cur.kappa.logit<- transfo(par = cur.kappa, lb= 0.05 * delta, ub = delta)
+  cur.kappa.logit<- transfo(par = cur.kappa, lb= 0.1 * delta, ub = 0.5 * delta)
   prop.kappa.logit<- rnorm(n=1, mean = cur.kappa.logit, sd=sqrt(tun.kappa))
-  prop.kappa<- inv_transfo(tpar = prop.kappa.logit, lb = 0.05 * delta, ub = delta)
+  prop.kappa<- inv_transfo(tpar = prop.kappa.logit, lb = 0.1 * delta, ub = 0.5 * delta)
 
-  jaco_diff<- jac_inv_transfo(tpar = prop.kappa.logit, lb =0.05 * delta, ub = delta, log = TRUE) -
-    jac_inv_transfo(tpar = cur.kappa.logit, lb = 0.05 * delta, ub = delta, log = TRUE)
+  jaco_diff<- jac_inv_transfo(tpar = prop.kappa.logit, lb =0.1 * delta, ub = 0.5 * delta, log = TRUE) -
+    jac_inv_transfo(tpar = cur.kappa.logit, lb = 0.1 * delta, ub = 0.5 * delta, log = TRUE)
 
   inv_covlog.det<- det_inv_cov_matrix(cov_mat =   cor.fun(cor.type = cor.type, dist.mat = dist.mat, kappa = prop.kappa),
                                       det = TRUE)
@@ -112,9 +112,9 @@ update_kappa.dense<- function(nt, cur.kappa, mu, mu0, sigma2, log.det, cov_inv, 
 update_kappa.sparse<- function(nt, cur.kappa, sigma2, c.mat, g1.mat, g2.mat,
                                 R, R0, cor.mat.inv, log.det.cor.mat, delta, tun.kappa, ind=FALSE){
   # browser()
-  tran.kappa<- transfo(par = cur.kappa, lb=0.05 * delta, ub=delta)
+  tran.kappa<- transfo(par = cur.kappa, lb= 0.1 * delta, ub= 0.5 * delta)
   prop.tran.kappa<- rnorm(n=1, mean = tran.kappa, sd=sqrt(tun.kappa))
-  prop.kappa<- inv_transfo(tpar=prop.tran.kappa, lb=0.05 * delta, ub=delta)
+  prop.kappa<- inv_transfo(tpar=prop.tran.kappa, lb = 0.1 * delta, ub = 0.5 * delta)
 
   cor.mat.inv.and.log.det.prop<- cormat.inv.update.inla(rho = prop.kappa, c.mat=c.mat,
                                                         g1.mat=g1.mat, g2.mat=g2.mat, alpha = 2)
@@ -135,8 +135,8 @@ update_kappa.sparse<- function(nt, cur.kappa, sigma2, c.mat, g1.mat, g2.mat,
     (0.5/sigma2) * (sum((diff_mus %*% cor.mat.inv.prop) * diff_mus) - sum((diff_mus %*% cor.mat.inv) * diff_mus))
 
 
-  prio.diff<- jac_inv_transfo(prop.tran.kappa, lb = 0.05 * delta, ub = delta, log = TRUE) -
-    jac_inv_transfo(tran.kappa, lb = 0.05 * delta, ub= delta, log = TRUE)
+  prio.diff<- jac_inv_transfo(prop.tran.kappa, lb = 0.1 * delta, ub = 0.5 * delta, log = TRUE) -
+    jac_inv_transfo(tran.kappa, lb = 0.1 * delta, ub = 0.5 * delta, log = TRUE)
 
   log.diff<- log.diff.lik + prio.diff
   if(log(runif(1)) < log.diff){

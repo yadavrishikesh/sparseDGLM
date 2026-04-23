@@ -205,7 +205,7 @@ MCMC.sampler_model.reg<-function(model,
     if(data_lik=="lNormal"){
     cur.samples.k<- update_var(ns=ns,
                                nt=nt,
-                               param.hyperprior=c(0.25, 0.25),
+                               param.hyperprior = c(10, 1),
                                qud_sum = sum((log(1+Y.o) - cur.samples.lambda)^2)
     )
     } else{
@@ -217,7 +217,7 @@ MCMC.sampler_model.reg<-function(model,
     #### update tau2 #############
     cur.samples.tau2<- update_var(ns=ns,
                                   nt=nt,
-                                  param.hyperprior=c(0.25, 0.25),
+                                  param.hyperprior = c(10, 0.1),
                                   qud_sum = sum((cur.samples.lambda - cur.samples.beta0 - comp.cov)^2)
     )
     #cur.samples.tau2<- hyper$tau2

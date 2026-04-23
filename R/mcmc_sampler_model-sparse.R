@@ -289,7 +289,7 @@ MCMC.sampler_model.sparse <- function(model,
     if(data_lik=="lNormal"){
       cur.samples.k<- update_var(ns=ns,
                                  nt=nt,
-                                 param.hyperprior=c(0.25, 0.25),
+                                 param.hyperprior = c(10, 1),
                                  qud_sum = sum((log(1+Y.o) - cur.samples.lambda)^2)
       )
     } else{
@@ -330,7 +330,7 @@ MCMC.sampler_model.sparse <- function(model,
     qud_sum<- t(cur.samples.R[1,] - m0.R) %*% cor.mat.inv %*% (cur.samples.R[1,] - m0.R) +  sum((mu_diff %*% cor.mat.inv) * mu_diff)
     cur.samples.sigma2<- update_var(ns=nb,
                                     nt=nt,
-                                    param.hyperprior=c(0.25, 0.25),
+                                    param.hyperprior = c(10, 1),
                                     qud_sum = as.numeric(qud_sum)
     )
 
@@ -338,7 +338,7 @@ MCMC.sampler_model.sparse <- function(model,
     #### update tau2 #############
     cur.samples.tau2<- update_var(ns=ns,
                                   nt=nt,
-                                  param.hyperprior=c(0.25, 0.25),
+                                  param.hyperprior = c(10, 0.1),
                                   qud_sum = sum((cur.samples.lambda - cur.samples.mu.st -
                                                    comp.cov - Ft.mean)^2)
     )
@@ -382,7 +382,7 @@ MCMC.sampler_model.sparse <- function(model,
                                theta0 =cur.samples.theta0,
                                theta = cur.samples.theta,
                                G = G,
-                               param.hyperprior = c(2,0.1))
+                               param.hyperprior = c(10, 0.1))
 
     ########## update theta using FFBS #########
 
