@@ -73,7 +73,7 @@ init_fun <- function(p, q, ns, nt, nb, Y, model, data_lik, delta, seed) {
     init <- list(
       "r" = if(data_lik=="NegB") {runif(1,0,1000)} else{NULL},
       "k" = if(data_lik=="lNormal") {runif(1,1,10)} else{NULL},
-      "kappa" = runif(1, 0.1 * delta, delta),
+      "kappa" = runif(1, 0.1 * delta, 0.5 * delta),
       "sigma2" = runif(1, 0, 1),
       "tau2" = runif(1, 0, 1),
       "Wt" = runif(p, 0, 1),
@@ -108,7 +108,7 @@ init_fun <- function(p, q, ns, nt, nb, Y, model, data_lik, delta, seed) {
     init <- list(
       "r" = if(data_lik=="NegB") {runif(1,0,1000)} else{NULL},
       "k" = if(data_lik=="lNormal") {runif(1,1,10)} else{NULL},
-      "kappa" = runif(1, 0.1 * delta, delta),
+      "kappa" = runif(1, 0.1 * delta, 0.5 * delta),
       "sigma2" = runif(1, 0, 1),
       "tau2" = runif(1, 0, 1),
       "Wt" = runif(p, 0, 1),
