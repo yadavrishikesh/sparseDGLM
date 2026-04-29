@@ -23,7 +23,7 @@
 update_space_time_beta <- function(lambda, m.lambda, X, quad.X, tau2) {
 #  browser()
   p <- ncol(X)
-  prior_cov <- diag(10, p)
+  prior_cov <- diag(1, p)
   prior_prec <- solve(prior_cov)
   post_prec <- (1 / tau2) * quad.X + prior_prec
   post_cov <- solve(post_prec)
