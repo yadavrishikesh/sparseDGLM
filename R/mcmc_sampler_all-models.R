@@ -150,17 +150,74 @@ MCMC.sampler.st.DGLM<- function(Y,
 
   ### design matrix for fixed coeffiecients
   X.o<- X[1:nt, -spatInt.ind, ]
-  X.o<- matrix(aperm(X.o, c(1, 2, 3)), nrow = nt * ns, ncol = q)
-  quad.X.o<- t(X.o) %*% X.o
+
+  # Extracting the purely spatial, purely temporal and space-time covariates
+  is.temp <- sapply(1:q, \(k) all(apply(X[,,k], 1, \(z) length(unique(z)) == 1)))
+  is.spat <- sapply(1:q, \(k) all(apply(X[,,k], 2, \(z) length(unique(z)) == 1)))
+
+  idx.temp <- which(is.temp)
+  idx.spat <- which(is.spat)
+  idx.st   <- which(!(is.temp | is.spat))
+
+  cov.idx <- list(
+    temp = idx.temp,
+    spat = idx.spat,
+    st   = idx.st
+  )
+
+  ## Purely temporal covarites
+  q.t <- length(idx.temp)
+  Xt.o <- matrix(
+    X.o[, 1, idx.temp, drop = FALSE],
+    nrow = nt,
+    ncol = q.t,
+    dimnames = list(NULL, dimnames(X.o)[[3]][idx.temp])
+  )
+
+  cross_prod_cov_X_t.o <- matrix(0, nrow = q.t, ncol = q.t)
+  if(q.t > 0){
+    for(t in 1:nt){
+      cross_prod_cov_X_t.o <- cross_prod_cov_X_t.o +
+        Xt.o[t,] %*% t(Xt.o[t,])
+    }
+  }
+
+ # browser()
+  ## spatial covarites
+  q.s  <- length(idx.spat)
+  Xs.o <- matrix(
+    X.o[1, , idx.spat, drop = FALSE],
+    nrow = ns,
+    ncol = q.s,
+    dimnames = list(NULL, dimnames(X.o)[[3]][idx.spat])
+  )
+
+  ## space-time covarites
+  q.st <- length(cov.idx$st)
+  if(q.st > 0){
+    Xst.o <- matrix(
+      X.o[, , cov.idx$st, drop = FALSE],
+      nrow = nt * ns,
+      ncol = q.st
+    )
+  quad.Xst.o <- t(Xst.o) %*% Xst.o
+  } else {
+    Xst.o <- matrix(0, nrow = nt * ns, ncol = 0)
+    quad.Xst.o <- matrix(0, nrow = 0, ncol = 0)
+  }
+
+  ## we mighht not be needing this anymore
+   X.o<- matrix(aperm(X.o, c(1, 2, 3)), nrow = nt * ns, ncol = q) # matrix(X.o, nrow = nt * ns, ncol = q)
+   quad.X.o<- t(X.o) %*% X.o
+
+
+  ## covariates for sptial, temporal and spatio-temporal prediction
   X.intpl<- X[1:nt, spatInt.ind, ]
-  X.intpl<- matrix(aperm(X.intpl, c(1, 2, 3)),
-                   nrow = nt * length(spatInt.ind), ncol = q)
+  X.intpl<- matrix(aperm(X.intpl, c(1, 2, 3)), nrow = nt * length(spatInt.ind), ncol = q) # matrix(X.intpl, nrow = nt * length(spatInt.ind), ncol = q)
   X.frcast<- X[-(1:nt), -spatInt.ind, ]
-  X.frcast<- matrix(aperm(X.frcast, c(1, 2, 3)),
-                    nrow = length(forcast.ind) * ns, ncol = q)
+  X.frcast<- matrix(aperm(X.frcast, c(1, 2, 3)), nrow = length(forcast.ind) * ns, ncol = q) ## matrix(X.frcast, nrow = length(forcast.ind) * ns, ncol = q)
   X.st<- X[-(1:nt), spatInt.ind, ]
-  X.st<- matrix(aperm(X.st, c(1, 2, 3)),
-                nrow = length(forcast.ind) * length(spatInt.ind), ncol = q)
+  X.st<- matrix(aperm(X.st, c(1, 2, 3)), nrow = length(forcast.ind) * length(spatInt.ind), ncol = q) # matrix(X.st, nrow = length(forcast.ind) * length(spatInt.ind), ncol = q)
 
   ### purely temporal covariate with dynamic temporal components
   Ft.o<- Ft[1:nt, ]
@@ -313,7 +370,9 @@ if(model=="bayes.reg"){ ## baseline model (Model with only fixed covariates
     MCMC.sampler_model.reg(model = model,
       data_lik = data_lik, nt = nt, ns = ns, p = p, q = q, Y.o = Y.o, data.log.mean = data.log.mean,
       data.mean = data.mean, Y.intpl = Y.intpl, Y.frcast = Y.frcast, Y.st = Y.st, ind_NA_Y = ind_NA_data,
-      X.o = X.o, quad.X.o = quad.X.o, X.intpl = X.intpl, X.frcast = X.frcast, X.st = X.st, X.p = X.p,
+       X.o = X.o, quad.X.o = quad.X.o, cross_prod_cov_X_t.o = cross_prod_cov_X_t.o, quad.Xst.o = quad.Xst.o,
+      Xt.o = Xt.o, Xs.o = Xs.o, Xst.o = Xst.o, cov.idx = cov.idx,
+      X.intpl = X.intpl, X.frcast = X.frcast, X.st = X.st, X.p = X.p,
       spatInt.ind = spatInt.ind, forcast.ind = forcast.ind, samples.store = samples.store,
       N.MCMC = N.MCMC, burn_in1 = burn_in1, burn_in2 = burn_in2, adapt_seq = adapt_seq, thin = thin,
       adapt = adapt, tun_r = tun_r, tun_lambda = tun_lambda, print.result = print.result, traceplot = traceplot,
@@ -325,7 +384,9 @@ if(model=="bayes.reg"){ ## baseline model (Model with only fixed covariates
     MCMC.sampler_model.dense(model = model,
       data_lik = data_lik, nt = nt, ns = ns, p = p, q = q, Y.o = Y.o, data.log.mean = data.log.mean,
       data.mean = data.mean, Y.intpl = Y.intpl, Y.frcast = Y.frcast, Y.st = Y.st, ind_NA_Y = ind_NA_data,
-      X.o = X.o, quad.X.o = quad.X.o, X.intpl = X.intpl, X.frcast = X.frcast, X.st = X.st, X.p = X.p,
+      X.o = X.o, quad.X.o = quad.X.o, cross_prod_cov_X_t.o = cross_prod_cov_X_t.o, quad.Xst.o = quad.Xst.o,
+      Xt.o = Xt.o, Xs.o = Xs.o, Xst.o = Xst.o, cov.idx = cov.idx,
+      X.intpl = X.intpl, X.frcast = X.frcast, X.st = X.st, X.p = X.p,
       Ft.o = Ft.o, F.mat.o = F.mat.o, Ft.frcast = Ft.frcast, m0.mu = m0.mu, C0.mu = C0.mu, m0.theta = m0.theta,
       C0.theta = C0.theta, G = G, dist.mat.all = dist.mat.all, dist.mat.o = dist.mat.o, delta = delta,
       spatInt.ind = spatInt.ind, forcast.ind = forcast.ind, cor.type =  cor.type, samples.store = samples.store,
@@ -339,7 +400,9 @@ if(model=="bayes.reg"){ ## baseline model (Model with only fixed covariates
     MCMC.sampler_model.sparse(model = model,
       data_lik = data_lik, nt = nt, ns = ns, p = p, q = q, Y.o = Y.o, data.log.mean = data.log.mean,
       data.mean = data.mean, Y.intpl = Y.intpl, Y.frcast = Y.frcast, Y.st = Y.st, ind_NA_Y = ind_NA_data,
-      X.o = X.o, quad.X.o = quad.X.o, X.intpl = X.intpl, X.frcast = X.frcast, X.st = X.st, X.p = X.p,
+      X.o = X.o, quad.X.o = quad.X.o, cross_prod_cov_X_t.o = cross_prod_cov_X_t.o, quad.Xst.o=quad.Xst.o,
+      Xt.o = Xt.o, Xs.o = Xs.o, Xst.o = Xst.o, cov.idx = cov.idx,
+      X.intpl = X.intpl, X.frcast = X.frcast, X.st = X.st, X.p = X.p,
       Ft.o = Ft.o, F.mat.o = F.mat.o, Ft.frcast = Ft.frcast, m0.R = m0.R, C0.R = C0.R, m0.theta = m0.theta,
       C0.theta = C0.theta, G = G, delta = delta, A.proj.o = A.proj.o, A.proj.p = A.proj.p, c.mat.o = c.mat.o,
       g1.mat.o = g1.mat.o, g2.mat.o = g2.mat.o, spatInt.ind = spatInt.ind, forcast.ind = forcast.ind, samples.store = samples.store,

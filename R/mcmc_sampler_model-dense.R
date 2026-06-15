@@ -125,6 +125,12 @@ MCMC.sampler_model.dense <- function(model,
                                   ind_NA_Y,
                                   X.o,
                                   quad.X.o,
+                                  cross_prod_cov_X_t.o,
+                                  quad.Xst.o,
+                                  Xt.o,
+                                  Xs.o,
+                                  Xst.o,
+                                  cov.idx,
                                   X.intpl,
                                   X.frcast,
                                   X.st,
@@ -163,6 +169,7 @@ MCMC.sampler_model.dense <- function(model,
                                   ...
 ){
 
+  #browser()
   tun_lambda<- matrix(rep(tun_lambda, nt * ns), nrow = nt, ncol = ns)
   if(data_lik=="NegB"){tun_r= tun_r} else {tun_r=NULL}
   sigma.matrix<-matrix(nrow=floor(N.MCMC/adapt),
@@ -181,6 +188,9 @@ MCMC.sampler_model.dense <- function(model,
   cur.samples.Wt<- init.names$init$Wt
   cur.samples.mu.st<- init.names$init$mu.st
   cur.samples.beta<- init_beta # init.names$init$beta
+  cur.samples.beta.t<- cur.samples.beta[cov.idx$temp]
+  cur.samples.beta.s<- cur.samples.beta[cov.idx$spat]
+  cur.samples.beta.st<- cur.samples.beta[cov.idx$st]
   cur.samples.theta<- init.names$init$theta
   cur.samples.lambda<- init_lambda # init.names$init$lambda_init
 
@@ -223,7 +233,24 @@ MCMC.sampler_model.dense <- function(model,
 
 ## terms used to start the codes
   Ft.mean<- matrix(rowSums(Ft.o * cur.samples.theta), nrow = nt, ncol=ns)
-  comp.cov<- matrix(c(X.o %*% cur.samples.beta), nrow = nt, ncol = ns)
+
+  if(length(cov.idx$st)==0){
+    comp.cov.st<-  matrix(0, nrow=nt, ncol = ns)
+  } else {
+    comp.cov.st<-  matrix(c(Xst.o%*% cur.samples.beta.st), nrow=nt, ncol = ns)
+  }
+    if(length(cov.idx$temp)==0){
+      comp.cov.temp<-  matrix(0, nrow=nt, ncol = ns)
+    } else{
+      comp.cov.temp<-  c(Xt.o%*%cur.samples.beta.t)
+    }
+  if(length(cov.idx$spat) ==0){
+    comp.cov.spat<-  matrix(0, nrow=nt, ncol = ns)
+
+  } else{
+    comp.cov.spat<-  c(Xs.o%*%cur.samples.beta.s)
+    comp.cov.spat<- rep(comp.cov.spat, each=nt)
+  }
 
   cor.mat.inv.and.log.det<- cormat.inv.fun(kappa = cur.samples.kappa, dist.mat=dist.mat.o, cor.type=cor.type)
   Sigma.inv= cor.mat.inv.and.log.det$cormat.inv
@@ -321,12 +348,12 @@ MCMC.sampler_model.dense <- function(model,
                                     )
 
     #cur.samples.sigma2<- hyper$sigma2
+
     #### update tau2 #############
     cur.samples.tau2<- update_var(ns=ns,
                                   nt=nt,
                                   param.hyperprior=c(10, 0.1),
-                                  qud_sum = sum((cur.samples.lambda  - cur.samples.mu.st -
-                                                   comp.cov - Ft.mean)^2)
+                                  qud_sum = sum((cur.samples.lambda - cur.samples.mu.st - comp.cov.st - comp.cov.temp - comp.cov.spat - Ft.mean)^2)
                                   )
 
 
@@ -336,7 +363,7 @@ MCMC.sampler_model.dense <- function(model,
                                                    ns = ns,
                                                    mu_current = cur.samples.mu.st,
                                                    mu0  = m0.mu,
-                                                   lambdas_mean = cur.samples.lambda - Ft.mean - comp.cov,
+                                                   lambdas_mean = cur.samples.lambda - Ft.mean - comp.cov.st - comp.cov.temp - comp.cov.spat,
                                                    sigma.kappa.inv = Sigma.inv,
                                                    sigma2 = cur.samples.sigma2,
                                                    tau2 = cur.samples.tau2)
@@ -344,16 +371,62 @@ MCMC.sampler_model.dense <- function(model,
     end_time_mus<- Sys.time()
     run_time_mus<- run_time_mus + (end_time_mus - start_time_mus)
 
-    #cur.samples.mu.st<- sim_M0$mu.st[1:nt, -(spatInt.ind)]
 
-    ### update betas
-    cur.samples.beta<- update_space_time_beta(lambda = cur.samples.lambda,
-                                              m = cur.samples.mu.st + Ft.mean,
-                                              X = X.o,
-                                              quad.X = quad.X.o,
-                                              tau2 = cur.samples.tau2
-    )
-    comp.cov<-  matrix(c(X.o%*% cur.samples.beta), nrow=nt, ncol = ns)
+    #cur.samples.mu.st<- sim_M0$mu.st[1:nt, -(spatInt.ind)]
+   # browser()
+    ########### Updates betas
+    ### update space-time betas
+    if(length(cov.idx$st)==0){
+    cur.samples.beta.st<-  numeric(0)
+    comp.cov.st<-  matrix(0, nrow=nt, ncol = ns)
+    } else {
+      cur.samples.beta.st<- update_space_time_beta(lambda = cur.samples.lambda,
+                                                m = cur.samples.mu.st + Ft.mean + comp.cov.spat + comp.cov.temp,
+                                                X = Xst.o,
+                                                quad.X = quad.Xst.o,
+                                                tau2 = cur.samples.tau2
+      )
+      comp.cov.st<-  matrix(c(Xst.o%*% cur.samples.beta.st), nrow=nt, ncol = ns)
+    }
+
+    ## update purely temporal
+    if(length(cov.idx$temp)==0){
+      cur.samples.beta.t<-  numeric(0)
+      comp.cov.temp<-  matrix(0, nrow=nt, ncol = ns)
+    } else{
+      cur.samples.beta.t<- update_purely_temp_beta(ns=ns,
+                                                     X=Xt.o,
+                                                     sigma2 = cur.samples.tau2,
+                                                     Sigma.inv = diag(1,ns),
+                                                     mean_lat =  cur.samples.lambda - Ft.mean - comp.cov.spat - comp.cov.st - cur.samples.mu.st,
+                                                     cov_quad = cross_prod_cov_X_t.o,
+                                                     var_hyprior=2
+      )
+
+      comp.cov.temp<-  c(Xt.o%*%cur.samples.beta.t)
+    }
+
+    ## update purely spatial betas
+    if(length(cov.idx$spat) ==0){
+    cur.samples.beta.s<- numeric(0)
+    comp.cov.spat<-  matrix(0, nrow=nt, ncol = ns)
+
+    } else{
+    cur.samples.beta.s<- update_purely_spat_beta(ns = ns,
+                                                 nt = nt,
+                                                 X = Xs.o,
+                                                 sigma2 = cur.samples.tau2,
+                                                 Sigma.inv = diag(1, ns),
+                                                 mean_lat= cur.samples.lambda - Ft.mean - comp.cov.temp - comp.cov.st - cur.samples.mu.st,
+                                                 var_hyprior = 2)
+    comp.cov.spat<- c(Xs.o%*%cur.samples.beta.s)
+    comp.cov.spat<- rep(comp.cov.spat, each=nt)
+    }
+
+    # now stores all the betas all-together
+    cur.samples.beta[cov.idx$st] = cur.samples.beta.st
+    cur.samples.beta[cov.idx$temp] = cur.samples.beta.t
+    cur.samples.beta[cov.idx$spat] = cur.samples.beta.s
 
     #### update Wt ############
     cur.samples.theta0<- m0.theta
@@ -364,16 +437,18 @@ MCMC.sampler_model.dense <- function(model,
                                G = G,
                                param.hyperprior = c(10,0.1))
 
-
+    #cur.samples.Wt<- c(diag(hyper$Wt))
     ########## update theta using FFBS #########
     cur.samples.theta<- ffbs_thetas(p=p,
-                                      mus = cur.samples.lambda - cur.samples.mu.st - comp.cov,
+                                      mus = cur.samples.lambda - cur.samples.mu.st - comp.cov.st - comp.cov.spat - comp.cov.temp,
                                       G=G,
                                       Sigma= diag(cur.samples.Wt, p),
                                       H= F.mat.o,
                                       tau2 = cur.samples.tau2,
                                       ns=ns,
                                       nt=nt)
+
+    #cur.samples.theta<- sim_M0$theta[1:nt,]
     Ft.mean<-  matrix(rowSums(Ft.o * cur.samples.theta), nrow = nt, ncol=ns)
 
     ########## update lambda
@@ -381,7 +456,7 @@ MCMC.sampler_model.dense <- function(model,
                                                  nt=nt,
                                                  Y = Y.o,
                                                  cur.lambda = cur.samples.lambda,
-                                                 mean.lambda =  cur.samples.mu.st +  Ft.mean + comp.cov,
+                                                 mean.lambda =  cur.samples.mu.st +  Ft.mean + comp.cov.st + comp.cov.temp + comp.cov.spat,
                                                  tau2 = cur.samples.tau2,
                                                  r=  cur.samples.r,
                                                  k = cur.samples.k,

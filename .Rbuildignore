@@ -2,3 +2,5 @@
 ^\.Rproj\.user$
 ^Meta$
 ^doc$
+^\.positai$
+^\.claude$

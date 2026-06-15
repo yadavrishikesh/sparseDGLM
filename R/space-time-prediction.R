@@ -178,7 +178,7 @@ pred.dense <- function(nt,
     mus.mean <- t(Sigma.pred.obs %*% inv_Sigma.obs %*% t(mus.samples))
 
     #mus.pred <- c(mvtnorm::rmvnorm(n = 1, mean = mus.mean, sigma =  as.matrix(Matrix::forceSymmetric(cov_sim)))) #mus.mean # (this was earlier, perhaps to cope with extremely crazy variances)
-    mus.pred <- mus.mean + mvtnorm::rmvnorm(n = nt, mean = rep(0, ns.pred), sigma = cov_sim)
+    mus.pred <- mus.mean + mvtnorm::rmvnorm(n = nt, mean = rep(0, ns.pred), sigma = as.matrix(Matrix::forceSymmetric(cov_sim)))
 
     Ft.mean <- matrix(rowSums(Ft.o[1:nt,] * theta.samples), nrow = nt, ncol = ns.pred)
     comp.cov<- matrix(c(X.intpl %*% beta.samples), nrow = nt, ncol=ns.pred)

@@ -97,6 +97,12 @@ MCMC.sampler_model.reg<-function(model,
                                 ind_NA_Y,
                                 X.o,
                                 quad.X.o,
+                                cross_prod_cov_X_t.o,
+                                quad.Xst.o,
+                                Xt.o,
+                                Xs.o,
+                                Xst.o,
+                                cov.idx,
                                 X.intpl,
                                 X.frcast,
                                 X.st,
@@ -132,7 +138,12 @@ MCMC.sampler_model.reg<-function(model,
   cur.samples.k<- init.names$init$k
   cur.samples.beta0<- init.names$init$beta0
   cur.samples.tau2<- init.names$init$tau2
+
   cur.samples.beta<- init_beta # init.names$init$beta
+  cur.samples.beta.t<- cur.samples.beta[cov.idx$temp]
+  cur.samples.beta.s<- cur.samples.beta[cov.idx$spat]
+  cur.samples.beta.st<- cur.samples.beta[cov.idx$st]
+
   cur.samples.lambda<- init_lambda # init.names$init$lambda_init
 
   samples <- matrix(nrow=floor(N.MCMC/thin), ncol= length(cur.samples.r) + length(cur.samples.k) +
@@ -159,7 +170,23 @@ MCMC.sampler_model.reg<-function(model,
 
   ls<- 1
 
-  comp.cov<-  matrix(c(X.o %*% cur.samples.beta), nrow = nt, ncol = ns)
+  if(length(cov.idx$st)==0){
+    comp.cov.st<-  matrix(0, nrow=nt, ncol = ns)
+  } else {
+    comp.cov.st<-  matrix(c(Xst.o%*% cur.samples.beta.st), nrow=nt, ncol = ns)
+  }
+  if(length(cov.idx$temp)==0){
+    comp.cov.temp<-  matrix(0, nrow=nt, ncol = ns)
+  } else{
+    comp.cov.temp<-  c(Xt.o%*%cur.samples.beta.t)
+  }
+  if(length(cov.idx$spat) ==0){
+    comp.cov.spat<-  matrix(0, nrow=nt, ncol = ns)
+
+  } else{
+    comp.cov.spat<-  c(Xs.o%*%cur.samples.beta.s)
+    comp.cov.spat<- rep(comp.cov.spat, each=nt)
+  }
 
   j<-1
   l<-1
@@ -218,14 +245,14 @@ MCMC.sampler_model.reg<-function(model,
     cur.samples.tau2<- update_var(ns=ns,
                                   nt=nt,
                                   param.hyperprior = c(10, 0.1),
-                                  qud_sum = sum((cur.samples.lambda - cur.samples.beta0 - comp.cov)^2)
+                                  qud_sum = sum((cur.samples.lambda - cur.samples.beta0 - comp.cov.st - comp.cov.temp - comp.cov.spat)^2)
     )
     #cur.samples.tau2<- hyper$tau2
 
     ## update overall intercepts
     cur.samples.beta0<- update_intercept_reg(nt = nt,
                                         ns = ns,
-                                        lambda.mean.diff =  cur.samples.lambda - comp.cov,
+                                        lambda.mean.diff =  cur.samples.lambda - comp.cov.st - comp.cov.temp - comp.cov.spat,
                                         tau2 = cur.samples.tau2,
                                         prior.var = 3
                                         )
@@ -233,21 +260,76 @@ MCMC.sampler_model.reg<-function(model,
 
 
      ### update betas
-     cur.samples.beta<- update_space_time_beta(lambda = cur.samples.lambda,
-                                             m = cur.samples.beta0,
-                                             X = X.o,
-                                             quad.X = quad.X.o,
-                                             tau2 = cur.samples.tau2
-                                             )
+    #  cur.samples.beta<- update_space_time_beta(lambda = cur.samples.lambda,
+    #                                          m = cur.samples.beta0,
+    #                                          X = X.o,
+    #                                          quad.X = quad.X.o,
+    #                                          tau2 = cur.samples.tau2
+    #                                          )
+    #
+    # comp.cov<-  matrix(c(X.o%*% cur.samples.beta), nrow = nt, ncol = ns)
 
-    comp.cov<-  matrix(c(X.o%*% cur.samples.beta), nrow = nt, ncol = ns)
+
+    ########### Updates betas
+    ### update space-time betas
+    if(length(cov.idx$st)==0){
+      cur.samples.beta.st<-  numeric(0)
+      comp.cov.st<-  matrix(0, nrow=nt, ncol = ns)
+    } else {
+      cur.samples.beta.st<- update_space_time_beta(lambda = cur.samples.lambda,
+                                                   m = cur.samples.beta0 + comp.cov.spat + comp.cov.temp,
+                                                   X = Xst.o,
+                                                   quad.X = quad.Xst.o,
+                                                   tau2 = cur.samples.tau2
+      )
+      comp.cov.st<-  matrix(c(Xst.o%*% cur.samples.beta.st), nrow=nt, ncol = ns)
+    }
+
+    ## update purely temporal
+    if(length(cov.idx$temp)==0){
+      cur.samples.beta.t<-  numeric(0)
+      comp.cov.temp<-  matrix(0, nrow=nt, ncol = ns)
+    } else{
+      cur.samples.beta.t<- update_purely_temp_beta(ns=ns,
+                                                   X=Xt.o,
+                                                   sigma2 = cur.samples.tau2,
+                                                   Sigma.inv = diag(1,ns),
+                                                   mean_lat =  cur.samples.lambda - cur.samples.beta0 - comp.cov.spat - comp.cov.st,
+                                                   cov_quad = cross_prod_cov_X_t.o,
+                                                   var_hyprior=2
+      )
+
+      comp.cov.temp<-  c(Xt.o%*%cur.samples.beta.t)
+    }
+
+    ## update purely spatial betas
+    if(length(cov.idx$spat) ==0){
+      cur.samples.beta.s<- numeric(0)
+      comp.cov.spat<-  matrix(0, nrow=nt, ncol = ns)
+
+    } else{
+      cur.samples.beta.s<- update_purely_spat_beta(ns = ns,
+                                                   nt = nt,
+                                                   X = Xs.o,
+                                                   sigma2 = cur.samples.tau2,
+                                                   Sigma.inv = diag(1, ns),
+                                                   mean_lat= cur.samples.lambda - cur.samples.beta0 - comp.cov.temp - comp.cov.st,
+                                                   var_hyprior = 2)
+      comp.cov.spat<- c(Xs.o%*%cur.samples.beta.s)
+      comp.cov.spat<- rep(comp.cov.spat, each=nt)
+    }
+
+    # now stores all the betas all-together
+    cur.samples.beta[cov.idx$st] = cur.samples.beta.st
+    cur.samples.beta[cov.idx$temp] = cur.samples.beta.t
+    cur.samples.beta[cov.idx$spat] = cur.samples.beta.s
 
     ########## update lambda
     cur.samples.lambda.all<- update_lambda_MMALA(ns = ns,
                                                  nt=nt,
                                                  Y = Y.o,
                                                  cur.lambda = cur.samples.lambda,
-                                                 mean.lambda = cur.samples.beta0 + comp.cov,
+                                                 mean.lambda = cur.samples.beta0 + comp.cov.spat + comp.cov.temp + comp.cov.st,
                                                  tau2 = cur.samples.tau2,
                                                  r=  cur.samples.r,
                                                  k = cur.samples.k,

@@ -1,5 +1,4 @@
 #' Update Fixed Effects Coefficients With Space-Time Covariates
-#'
 #' This function updates the space-time beta coefficients in the model using posterior mean and covariance based on the input parameters.
 #'
 #' @param lambda A reshaped matrix of dimension (nt * ns) x 1, originally of dimension nt x ns.
@@ -31,6 +30,33 @@ update_space_time_beta <- function(lambda, m.lambda, X, quad.X, tau2) {
   return(post_mean)
 }
 
+## test this function
+# q.t <- 2
+# q.s=2
+# q.st =2
+# nt = 100
+# ns=200
+#
+# Xt.o <- matrix(X[,1,1:2, drop =FALSE], nrow = nt, ncol = q.t)
+# Xs.o<- matrix(X[1, , 3:4, drop = FALSE], nrow = ns, ncol = q.s)
+# Xst.o <- matrix(X[, ,5:6, drop = FALSE], nrow = nt * ns, ncol = q.st)
+# quad.Xst.o <- t(Xst.o) %*% Xst.o
+#
+# Ft.o<- Ft[1:nt, ]
+# Ft.mean<-   matrix(rowSums(Ft.o * sim_M0$theta), nrow = nt, ncol=ns)
+#
+# comp.cov.spat<- c(Xs.o%*% beta[3:4])
+# comp.cov.spat<- rep(comp.cov.spat, each=nt)
+# comp.cov.temp<-  c(Xt.o%*%beta[1:2])
+# comp.cov.st<- matrix(c(Xst.o%*% beta[5:6]), nrow=nt, ncol = ns)
+#
+# update_space_time_beta(lambda = sim_M0$lambda,
+#                        m.lambda = sim_M0$mu.st + Ft.mean + comp.cov.spat +  comp.cov.temp,
+#                        X = Xst.o,
+#                        quad = quad.Xst.o,
+#                        tau2 = hyper$tau2
+#                        )
+
 
 
 #' Update Fixed Effects Coefficients With Purely Temporal Covariates
@@ -61,7 +87,7 @@ update_space_time_beta <- function(lambda, m.lambda, X, quad.X, tau2) {
 #' var_hyprior <- 0.01
 #' beta <- update_purely_temp_beta(p, ns, X, sigma2, Sigma.inv, mean_lat, cov_quad, var_hyprior)
 #' }
-update_purely_temp_beta<- function(p,
+update_purely_temp_beta<- function(
                                    ns,
                                    X,
                                    sigma2,
@@ -69,7 +95,8 @@ update_purely_temp_beta<- function(p,
                                    mean_lat,
                                    cov_quad,
                                    var_hyprior){
-  # browser()
+  #browser()
+  p<- ncol(X)
   sigma.s.inv<- Sigma.inv / sigma2
   quadr_cov<- sum(sigma.s.inv) # t(rep(1,ns)) %*% sigma.s.inv %*% rep(1,ns)
   mult_mean<- (t(rep(1,ns)) %*% sigma.s.inv) %*% t(mean_lat)
@@ -82,6 +109,23 @@ update_purely_temp_beta<- function(p,
 }
 
 
+# cross_prod_cov_X_t.o <- matrix(0, nrow = q.t, ncol = q.t)
+# if(q.t > 0){
+#   for(t in 1:nt){
+#     cross_prod_cov_X_t.o <- cross_prod_cov_X_t.o +
+#       Xt.o[t,] %*% t(Xt.o[t,])
+#   }
+# }
+# update_purely_temp_beta(ns = ns,
+#                         X = matrix(X[,1,1:2, drop =FALSE], nrow = nt, ncol = q.t),
+#                         sigma2 =  hyper$sigma2,
+#                         Sigma.inv = diag(1,ns),
+#                         mean_lat = sim_M0$lambda - Ft.mean - comp.cov.spat - comp.cov.st - sim_M0$mu.st,
+#                         cov_quad =cross_prod_cov_X_t.o,
+#                         var_hyprior = 2
+#                         )
+#
+# beta[1:2]
 
 
 #' Update Fixed Effects Coefficients With Purely Spatial Covariates
@@ -130,4 +174,16 @@ update_purely_spat_beta<- function(ns,
   proposals <- mvtnorm::rmvnorm(1, mean=mean.betas, sigma = cov.betas)
   return(t(proposals))
 }
+
+## Check for spatial beta
+# update_purely_spat_beta(ns = ns,
+#                         nt = nt,
+#                         X = Xs.o,
+#                         sigma2 = hyper$sigma2,
+#                         Sigma.inv = diag(1, ns),
+#                         mean_lat = sim_M0$lambda - Ft.mean - comp.cov.temp - comp.cov.st - sim_M0$mu.st,
+#                         var_hyprior = 2
+#                                    )
+# beta[3:4]
+
 
