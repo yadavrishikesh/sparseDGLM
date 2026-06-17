@@ -3,7 +3,19 @@
 #' This function performs MCMC based inference  and spatiotemporal predictions for spatiotemporal dynamic generalized linear models (st-DGLM), including dense and its sparse model counterparts.
 #'
 #' @param Y Matrix of response variables (observed and/or predicted).
-#' @param X Array of covariates (design matrix).
+#' @param X Numeric array of spatio-temporal covariates with dimension
+#'   \eqn{nt \times ns \times p}, where \eqn{p} is the total number of
+#'   covariates. The covariates may include:
+#'   \itemize{
+#'     \item purely spatial covariates (constant over time),
+#'     \item purely temporal covariates (common across locations), and
+#'     \item fully spatio-temporal covariates (varying over both space and time).
+#'   }
+#'   All covariates must be expanded and aligned to the common
+#'   spatio-temporal domain so that each covariate is represented on the
+#'   \eqn{nt \times ns} lattice, resulting in a design array of dimension
+#'   \eqn{nt \times ns \times p}.
+#'
 #' @param loc Matrix of spatial locations.
 #' @param num_harmonics Integer, the number of harmonics.
 #' @param seas.period Integer, specifying the periodicity of seasonality. For example, for hourly data, daily seasonality should be set to 24; for daily data, weekly seasonality should be set to 7.
@@ -120,13 +132,133 @@ MCMC.sampler.st.DGLM<- function(Y,
                                 simulation = FALSE,
                                 no_parallel_chain = 1){
 
-  #browser()
  ## some fixed MCMC hyperparameters
   adapt = 100
   tun_kappa = 1e-4
   tun_lambda = 1
   tun_r = 1e-2
 
+  ############################################################
+  ## Input checks
+  ############################################################
+
+  ## model type
+  valid.models <- c("dense", "sparse", "bayes.reg")
+  if(!model %in% valid.models){
+    stop("model must be one of: ",
+         paste(valid.models, collapse = ", "))
+  }
+
+  ## likelihood
+  valid.lik <- c("Poisson", "NegB", "lNormal")
+  if(!data_lik %in% valid.lik){
+    stop("data_lik must be one of: ",
+         paste(valid.lik, collapse = ", "))
+  }
+
+  ## correlation type
+  valid.cor <- c("Matern0.5",
+                 "Matern1",
+                 "Matern1.5",
+                 "Matern2.5",
+                 "MaternInf")
+
+  if(model == "dense" && !cor.type %in% valid.cor){
+    stop("cor.type must be one of: ",
+         paste(valid.cor, collapse = ", "))
+  }
+
+  ## sparse model requires sparse information
+  if(model == "sparse" && is.null(mesh.hyper)){
+    stop(
+      "For model = 'sparse', argument 'mesh.hyper' must be provided."
+    )
+  }
+
+  ## parallel chains
+  if(no_parallel_chain > 4 || no_parallel_chain < 1){
+    stop(
+      "'no_parallel_chain' must be an integer between 1 and 4."
+    )
+  }
+
+  ## MCMC settings
+  if(N.MCMC <= 0){
+    stop("'N.MCMC' must be positive.")
+  }
+
+  burnin <- floor(0.75 * N.MCMC)
+
+  max.store <- N.MCMC - burnin
+
+  if(samples.store > max.store){
+    stop(
+      paste0(
+        "'samples.store' cannot exceed ",
+        max.store,
+        " when 75% burn-in is used. ",
+        "Increase N.MCMC or reduce samples.store."
+      )
+    )
+  }
+
+  if(thin <= 0){
+    stop("'thin' must be a positive integer.")
+  }
+
+  ## default prediction indices
+  if(missing(spatInt.ind) || is.null(spatInt.ind)){
+    warning(
+      "'spatInt.ind' not supplied. Setting spatInt.ind = 1."
+    )
+    spatInt.ind <- 1
+  }
+
+  if(missing(forcast.ind) || is.null(forcast.ind)){
+    warning(
+      "'forcast.ind' not supplied. Setting forcast.ind = 1."
+    )
+    forcast.ind <- 1
+  }
+
+  ## dimensions
+  if(!is.matrix(Y)){
+    stop("'Y' must be a matrix.")
+  }
+
+  if(length(dim(X)) != 3){
+    stop(
+      "'X' must be a three-dimensional array with dimensions nt x ns x p."
+    )
+  }
+
+  nt <- nrow(Y)
+  ns <- ncol(Y)
+
+  if(dim(X)[1] != nt || dim(X)[2] != ns){
+    stop(
+      "Dimension mismatch: X must have dimensions nt x ns x p, ",
+      "where nt = nrow(Y) and ns = ncol(Y)."
+    )
+  }
+
+  ## location dimensions
+  if(nrow(loc) != ns){
+    stop(
+      "Number of rows in 'loc' must equal the number of spatial locations (ns)."
+    )
+  }
+
+  ## seasonality
+  if(seas.period <= 0){
+    stop("'seas.period' must be positive.")
+  }
+
+  if(num_harmonics < 0){
+    stop("'num_harmonics' must be non-negative.")
+  }
+
+  ## Continue with MCMC sampler ###
   ## harmonics  extraction
   harmo_info<- generate_harmonic_matrices(nt = nrow(Y),
                              num_harmonics = num_harmonics,
